@@ -6,8 +6,8 @@ const getPackageVersion = require('./lib/get-package-version')
 const debug = require('debug')('@apm-js-collab/tracing-hooks:module-patch')
 
 class ModulePatch {
-  constructor({ packages = new Set(), instrumentations = [] } = {}) {
-    this.packages = packages
+  constructor({ instrumentations = [] } = {}) {
+    this.packages = new Set(instrumentations.map(i => i.module.name))
     this.instrumentator = create(instrumentations)
     this.transformers = new Map()
     this.resolve = Module._resolveFilename

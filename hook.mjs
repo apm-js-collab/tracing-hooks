@@ -13,7 +13,7 @@ let instrumentator = null
 export async function initialize(data = {}) {
   const instrumentations = data?.instrumentations || []
   instrumentator = create(instrumentations)
-  packages = data?.packages || new Set()
+  packages = new Set(instrumentations.map(i => i.module.name))
   transformers = new Map()
 }
 

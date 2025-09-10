@@ -8,7 +8,6 @@ To load esm loader:
 ```js
 // esm-loader.mjs
 import { register } from 'node:module';
-const packages = new Set(['pkg1', 'pkg2']);
 const instrumentations = [
   {
     channelName: 'channel1',
@@ -31,7 +30,7 @@ const instrumentations = [
 ]
 
 register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
-  data: { instrumentations, packages }
+  data: { instrumentations }
 });
 ```
 
@@ -46,7 +45,6 @@ To load CJS patch:
 ```js
 // cjs-patch.js
 const ModulePatch = require('@apm-js-collab/tracing-hooks')
-const packages = new Set(['pkg1', 'pkg2']);
 const instrumentations = [
   {
     channelName: 'channel1',
@@ -61,7 +59,7 @@ const instrumentations = [
     channelName: 'channel2',
     module: { name: 'pkg2', verisonRange: '>=1.0.0', filePath: 'index.js' },
     functionQuery: {
-      className: 'Class2,
+      className: 'Class2',
       methodName: 'method2', 
       kind: 'Sync'
     }
@@ -69,7 +67,7 @@ const instrumentations = [
 ]
 
 
-const modulePatch = new ModulePatch({ instrumentations, packages });
+const modulePatch = new ModulePatch({ instrumentations });
 modulePatch.patch()
 ```
 
