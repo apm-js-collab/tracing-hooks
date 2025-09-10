@@ -10,7 +10,6 @@ const { readFileSync } = require('node:fs')
 
 test.beforeEach((t) => {
   const subscribers = {
-    packages: new Set(['pkg-1']),
     instrumentations: [
       {
         channelName: 'unitTest',
@@ -92,7 +91,6 @@ test('should not rewrite code for an unmatch patch', async (t) => {
 test('should not rewrite code if a function query does not exist in file', async (t) => {
   const { modulePath, snap } = t.ctx
   const subscribers = {
-    packages: new Set(['pkg-1']),
     instrumentations: [
       {
         channelName: 'unitTest',

@@ -7,9 +7,7 @@ import Snap from '@matteo.collina/snap'
 
 test.beforeEach(async (t) => {
   const esmLoaderRewriter = await import('../hook.mjs')
-  const packages = new Set(['esm-pkg', 'pkg-1'])
   esmLoaderRewriter.initialize({
-    packages,
     instrumentations: [
         {
           channelName: 'unitTestEsm',
@@ -152,9 +150,7 @@ test('should not rewrite code if it does not match a subscriber and a cjs module
 
 test('should not rewrite code if a function query does not exist in file', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
-  const packages = new Set(['esm-pkg'])
   esmLoaderRewriter.initialize({
-    packages,
     instrumentations: [
         {
           channelName: 'unitTestEsm',
