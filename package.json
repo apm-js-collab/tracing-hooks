@@ -8,9 +8,6 @@
     "type": "git",
     "url": "git+https://github.com/apm-js-collab/tracing-hooks.git"
   },
-  "engines": {
-    "node": ">=20"
-  },
   "main": "index.js",
   "scripts": {
     "test": "c8 borp 'test/**/*.test.{js,mjs}'"
