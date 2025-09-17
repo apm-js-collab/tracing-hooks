@@ -77,3 +77,18 @@ To use the CJS patch you can run your Node.js application with the `--require` f
 node --require cjs-patch.js your-app.js
 ```
 
+## Debugging
+
+The [debug module](https://www.npmjs.com/package/debug) is used to provide
+insight into the patching process. Set `DEBUG='@apm-js-collab*'` to view these
+logs.
+
+Additionally, any patched files can be written out by enabling dump mode. This
+is done by setting the environment variable `TRACING_DUMP` to any value. By
+default, it will write out file to the system's temporary directory as the
+parent directory. The target parent directory can be configured by setting
+the `TRACING_DUMP_DIR` environment variable to an absolute path. In either
+case, the resolved filename of the module being patched is appended. For
+example, if we are patching `lib/index.js` in the `foo` package, and we set
+a base directory of `/tmp/dump/`, then the patched code will be written to
+`/tmp/dump/foo/lib/index.js`.
