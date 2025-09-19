@@ -2,6 +2,13 @@
 
 - chore: Updated `@apm-js-collab/code-transformer` to `v.0.7.0` to get `moduleVersion` emitted over tracing channel events
 
+## [0.3.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.2.0...tracing-hooks-v0.3.0) (2025-09-19)
+
+
+### Features
+
+* Update wasm ([#11](https://github.com/apm-js-collab/tracing-hooks/issues/11)) ([75dbaa6](https://github.com/apm-js-collab/tracing-hooks/commit/75dbaa61bf31a3ae24d59f02a046e922f06ed875))
+
 ## [0.2.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.1.1...tracing-hooks-v0.2.0) (2025-09-12)
 
 
