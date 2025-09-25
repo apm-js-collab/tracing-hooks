@@ -10,7 +10,8 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "c8 borp 'test/**/*.test.{js,mjs}'"
+    "test": "c8 borp 'test/**/*.test.{js,mjs}'",
+    "test:update-snapshots": "SNAP_UPDATE=1 npm test"
   },
   "files": [
     "index.js",
