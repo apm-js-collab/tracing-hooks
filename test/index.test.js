@@ -41,26 +41,7 @@ test('should init ModulePatch', (t) => {
   const { modulePatch } = t.ctx
   assert.ok(modulePatch instanceof ModulePatch)
   assert.ok(modulePatch.instrumentator)
-  assert.equal(modulePatch.resolve, Module._resolveFilename)
   assert.ok(modulePatch.compile, Module.prototype._compile)
-  assert.ok(modulePatch.transformers instanceof Map)
-})
-
-test('should set a transformer for a matched patch', (t) => {
-  const { modulePath, modulePatch } = t.ctx
-  modulePatch.patch()
-  Module._resolveFilename(modulePath, null, false)
-  assert.ok(modulePatch.transformers.has(modulePath))
-  modulePatch.unpatch()
-  assert.equal(modulePatch.transformers.size, 0)
-})
-
-test('should not set a transformer for an unmatched patch', (t) => {
-  const { modulePatch } = t.ctx
-  modulePatch.patch()
-  const modulePath = path.join(__dirname, './example-deps/lib/node_modules/pkg-2/index.js')
-  Module._resolveFilename(modulePath, null, false)
-  assert.equal(modulePatch.transformers.size, 0)
 })
 
 test('should rewrite code for a match transformer', async (t) => {

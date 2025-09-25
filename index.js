@@ -9,45 +9,36 @@ class ModulePatch {
   constructor({ instrumentations = [] } = {}) {
     this.packages = new Set(instrumentations.map(i => i.module.name))
     this.instrumentator = create(instrumentations)
-    this.transformers = new Map()
-    this.resolve = Module._resolveFilename
     this.compile = Module.prototype._compile
   }
 
   /**
-   * Patches the Node.js module class methods that are responsible for resolving filePaths and compiling code.
+   * Patches the Node.js module class method that is responsible for compiling code.
    * If a module is found that has an instrumentator, it will transform the code before compiling it
    * with tracing channel methods.
    */
   patch() {
     const self = this
-    Module._resolveFilename = function wrappedResolveFileName() {
-      const resolvedName = self.resolve.apply(this, arguments)
-      const resolvedModule = parse(resolvedName)
+    Module.prototype._compile = function wrappedCompile(...args) {
+      const [content, filename] = args
+      const resolvedModule = parse(filename)
       if (resolvedModule && self.packages.has(resolvedModule.name)) {
+        debug('found resolved module, checking if there is a transformer %s', filename)
         const version = getPackageVersion(resolvedModule.basedir, resolvedModule.name)
         const transformer = self.instrumentator.getTransformer(resolvedModule.name, version, resolvedModule.path)
         if (transformer) {
-          self.transformers.set(resolvedName, transformer)
-        }
-      }
-      return resolvedName
-    }
-
-    Module.prototype._compile = function wrappedCompile(...args) {
-      const [content, filename] = args
-      if (self.transformers.has(filename)) {
-        const transformer = self.transformers.get(filename)
-        try {
-          const transformedCode = transformer.transform(content, 'unknown')
-          args[0] = transformedCode?.code
-          if (process.env.TRACING_DUMP) {
-            dump(args[0], filename)
+          debug('transforming file %s', filename)
+          try {
+            const transformedCode = transformer.transform(content, 'unknown')
+            args[0] = transformedCode?.code
+            if (process.env.TRACING_DUMP) {
+              dump(args[0], filename)
+            }
+          } catch (error) {
+            debug('Error transforming module %s: %o', filename, error)
+          } finally {
+            transformer.free()
           }
-        } catch (error) {
-          debug('Error transforming module %s: %o', filename, error)
-        } finally {
-          transformer.free()
         }
       }
 
@@ -56,12 +47,10 @@ class ModulePatch {
   }
 
   /**
-   * Clears all the transformers and restores the original Module methods that were wrapped.
+   * Restores the original Module.prototype._compile method
    * **Note**: This is intended to be used in testing only.
    */
   unpatch() {
-    this.transformers.clear()
-    Module._resolveFilename = this.resolve
     Module.prototype._compile = this.compile
   }
 }
