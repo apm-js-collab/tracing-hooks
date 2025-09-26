@@ -1,5 +1,12 @@
 ## CHANGELOG
 
+## [0.3.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.3.0...tracing-hooks-v0.3.1) (2025-09-26)
+
+
+### Bug Fixes
+
+* Updated module patch to only wrap _compile as it calls `_resolveFileName` ([#13](https://github.com/apm-js-collab/tracing-hooks/issues/13)) ([f59ff40](https://github.com/apm-js-collab/tracing-hooks/commit/f59ff408c6bafe86ed2bfa7d829c82b4699127b8))
+
 ## [0.3.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.2.0...tracing-hooks-v0.3.0) (2025-09-19)
 
 
