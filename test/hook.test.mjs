@@ -9,25 +9,25 @@ test.beforeEach(async (t) => {
   const esmLoaderRewriter = await import('../hook.mjs')
   esmLoaderRewriter.initialize({
     instrumentations: [
-        {
-          channelName: 'unitTestEsm',
-          module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
-          functionQuery: {
-            className: 'Foo',
-            methodName: 'doStuff',
-            kind: 'Async'
-          }
-        },
-        {
-          channelName: 'unitTestCjs',
-          module: { name: 'pkg-1', versionRange: '>=1', filePath: 'foo.js' },
-          functionQuery: {
-            className: 'Foo',
-            methodName: 'doStuff',
-            kind: 'Async'
-          }
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'doStuff',
+          kind: 'Async'
         }
-    ] 
+      },
+      {
+        channelName: 'unitTestCjs',
+        module: { name: 'pkg-1', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'doStuff',
+          kind: 'Async'
+        }
+      }
+    ]
   })
 
   const snap = Snap(`${import.meta.url}/${t.name}`)
@@ -61,7 +61,7 @@ test('should rewrite code if it matches a subscriber and esm module', async (t) 
 })
 
 test('should not rewrite code if it does not match a subscriber and a esm module', async (t) => {
-  const { esmLoaderRewriter, snap } = t.ctx 
+  const { esmLoaderRewriter, snap } = t.ctx
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg-2/index.js')
   async function resolveFn() {
     return { url: `file://${esmPath}` }
@@ -152,16 +152,16 @@ test('should not rewrite code if a function query does not exist in file', async
   const { esmLoaderRewriter, snap } = t.ctx
   esmLoaderRewriter.initialize({
     instrumentations: [
-        {
-          channelName: 'unitTestEsm',
-          module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
-          functionQuery: {
-            className: 'Foo',
-            methodName: 'nonExistentMethod',
-            kind: 'Async'
-          }
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'nonExistentMethod',
+          kind: 'Async'
         }
-    ] 
+      }
+    ]
   })
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
   async function resolveFn() {
@@ -200,6 +200,80 @@ test('should default initialization to not crash if not defined', async (t) => {
   const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
   assert.equal(result.format, 'module')
   assert.ok(!result.shortCircuit)
+  const snapshot = await snap(result.source)
+  assert.deepEqual(result.source, snapshot)
+})
+
+test('should rewrite code with conditional exports, cjs', async (t) => {
+  const { esmLoaderRewriter, snap } = t.ctx
+  // Re-initialize with pkg-3 instrumentation
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestConditional',
+        module: { name: 'pkg-3', versionRange: '>=1', filePath: 'lib/foo.cjs' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'bar',
+          kind: 'Sync'
+        }
+      }
+    ]
+  })
+
+  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-3/lib/foo.cjs')
+  async function resolveFn() {
+    return { url: `file://${cjsPath}` }
+  }
+  async function nextLoad(url, context) {
+    const data = readFileSync(cjsPath, 'utf8')
+    return {
+      format: 'commonjs',
+      source: data
+    }
+  }
+
+  const url = await esmLoaderRewriter.resolve('pkg-3/foo', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.format, 'commonjs')
+  assert.equal(result.shortCircuit, true)
+  const snapshot = await snap(result.source)
+  assert.deepEqual(result.source, snapshot)
+})
+
+test('should rewrite code with conditional exports, esm', async (t) => {
+  const { esmLoaderRewriter, snap } = t.ctx
+  // Re-initialize with pkg-3 instrumentation
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestConditional',
+        module: { name: 'pkg-3', versionRange: '>=1', filePath: 'lib/foo.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'bar',
+          kind: 'Sync'
+        }
+      }
+    ]
+  })
+
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-3/lib/foo.js')
+  async function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  async function nextLoad(url, context) {
+    const data = readFileSync(esmPath, 'utf8')
+    return {
+      format: 'module',
+      source: data
+    }
+  }
+
+  const url = await esmLoaderRewriter.resolve('pkg-3/foo', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.format, 'module')
+  assert.equal(result.shortCircuit, true)
   const snapshot = await snap(result.source)
   assert.deepEqual(result.source, snapshot)
 })
