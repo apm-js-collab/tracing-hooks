@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import Snap from '@matteo.collina/snap'
 
 test.beforeEach(async (t) => {
@@ -206,7 +207,7 @@ test('should default initialization to not crash if not defined', async (t) => {
 
 test('should rewrite code with conditional exports, cjs', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
-  // Re-initialize with pkg-3 instrumentation
+
   esmLoaderRewriter.initialize({
     instrumentations: [
       {
@@ -221,12 +222,20 @@ test('should rewrite code with conditional exports, cjs', async (t) => {
     ]
   })
 
-  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-3/lib/foo.cjs')
-  async function resolveFn() {
-    return { url: `file://${cjsPath}` }
+  const pkgDir = path.join(import.meta.dirname, './example-deps/lib/node_modules')
+  const require = createRequire(path.join(pkgDir, 'pkg-3', 'package.json'))
+
+  async function resolveFn(specifier, context) {
+    try {
+      const resolved = require.resolve(specifier)
+      return { url: `file://${resolved}` }
+    } catch (err) {
+      throw new Error(`Cannot resolve ${specifier}: ${err.message}`)
+    }
   }
   async function nextLoad(url, context) {
-    const data = readFileSync(cjsPath, 'utf8')
+    const filePath = url.startsWith('file://') ? fileURLToPath(url) : url
+    const data = readFileSync(filePath, 'utf8')
     return {
       format: 'commonjs',
       source: data
@@ -243,7 +252,7 @@ test('should rewrite code with conditional exports, cjs', async (t) => {
 
 test('should rewrite code with conditional exports, esm', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
-  // Re-initialize with pkg-3 instrumentation
+
   esmLoaderRewriter.initialize({
     instrumentations: [
       {
