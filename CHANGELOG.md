@@ -1,5 +1,12 @@
 ## CHANGELOG
 
+## [0.4.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.3.1...tracing-hooks-v0.4.0) (2026-03-02)
+
+
+### Features
+
+* Updated `@apm-js-collab/code-transformer` to `0.9.0` ([#17](https://github.com/apm-js-collab/tracing-hooks/issues/17)) ([c5e7725](https://github.com/apm-js-collab/tracing-hooks/commit/c5e7725760a06711f28a044dbcfea2f566c8bc2a))
+
 ## [0.3.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.3.0...tracing-hooks-v0.3.1) (2025-09-26)
 
 
