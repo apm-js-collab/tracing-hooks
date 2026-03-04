@@ -23,7 +23,8 @@ export async function resolve(specifier, context, nextResolve) {
   if (resolvedModule && packages.has(resolvedModule.name)) {
     const path = fileURLToPath(resolvedModule.basedir)
     const version = getPackageVersion(path)
-    const transformer = instrumentator.getTransformer(resolvedModule.name, version, resolvedModule.path)
+    const normalizedPath = resolvedModule.path.replace(/\\/g, '/')
+    const transformer = instrumentator.getTransformer(resolvedModule.name, version, normalizedPath)
     if (transformer) {
       transformers.set(url.url, transformer)
     }

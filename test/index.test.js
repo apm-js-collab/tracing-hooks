@@ -94,3 +94,32 @@ test('should not rewrite code if a function query does not exist in file', async
   const snapshot = await snap(rewrittenCode)
   assert.deepEqual(rewrittenCode, snapshot)
 })
+
+test('should patch if Window-styled path', async (t) => {
+  const { snap } = t.ctx
+  const modulePatch = new ModulePatch({
+    instrumentations: [
+      {
+        channelName: 'unitTest',
+        module: { name: 'pkg-1', versionRange: '>=1', filePath: 'lib/bar.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'doStuff',
+          kind: 'Async'
+        }
+      }
+    ]
+  })
+  modulePatch.patch()
+  const basePath = path.join(__dirname, './example-deps/lib/node_modules/pkg-1')
+  // Simulate Windows-style backslash in the path within the package
+  const windowsStylePath = path.join(basePath, 'lib\\bar.js')
+  const realPath = path.join(basePath, 'lib', 'bar.js')
+  const data = readFileSync(realPath, 'utf8')
+  const testModule = new Module(windowsStylePath)
+  testModule._compile(data, windowsStylePath)
+  const rewrittenCode = testModule.exports.toString()
+  const snapshot = await snap(rewrittenCode)
+  assert.deepEqual(rewrittenCode, snapshot)
+  modulePatch.unpatch()
+})

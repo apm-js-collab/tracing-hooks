@@ -203,3 +203,41 @@ test('should default initialization to not crash if not defined', async (t) => {
   const snapshot = await snap(result.source)
   assert.deepEqual(result.source, snapshot)
 })
+
+
+test('should resolve correctly if Window-styled path', async(t)=>{
+  const { esmLoaderRewriter, snap } = t.ctx
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'lib/bar.js' },
+        functionQuery: {
+          className: 'Foo',
+          methodName: 'doStuff',
+          kind: 'Async'
+        }
+      }
+    ]
+  })
+  const esmBasePath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg')
+  // Simulate Windows-style backslash in the path within the package
+  const windowsStyleUrl = `file://${esmBasePath}/lib\\bar.js`
+  async function resolveFn() {
+    return { url: windowsStyleUrl }
+  }
+  async function nextLoad() {
+    const data = readFileSync(path.join(esmBasePath, 'lib', 'bar.js'), 'utf8')
+    return {
+      format: 'module',
+      source: data
+    }
+  }
+
+  const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.format, 'module')
+  assert.equal(result.shortCircuit, true)
+  const snapshot = await snap(result.source)
+  assert.deepEqual(result.source, snapshot)
+})

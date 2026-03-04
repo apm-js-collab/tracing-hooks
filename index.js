@@ -25,7 +25,8 @@ class ModulePatch {
       if (resolvedModule && self.packages.has(resolvedModule.name)) {
         debug('found resolved module, checking if there is a transformer %s', filename)
         const version = getPackageVersion(resolvedModule.basedir, resolvedModule.name)
-        const transformer = self.instrumentator.getTransformer(resolvedModule.name, version, resolvedModule.path)
+        const normalizedPath = resolvedModule.path.replace(/\\/g, '/')
+        const transformer = self.instrumentator.getTransformer(resolvedModule.name, version, normalizedPath)
         if (transformer) {
           debug('transforming file %s', filename)
           try {
