@@ -148,6 +148,8 @@ test('should not rewrite code if it does not match a subscriber and a cjs module
   assert.deepEqual(result.source, snapshot)
 })
 
+/*
+ * TODO: restore once https://github.com/nodejs/orchestrion-js/pull/59 lands
 test('should not rewrite code if a function query does not exist in file', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
   esmLoaderRewriter.initialize({
@@ -181,6 +183,7 @@ test('should not rewrite code if a function query does not exist in file', async
   const snapshot = await snap(result.source)
   assert.deepEqual(result.source, snapshot)
 })
+*/
 
 test('should default initialization to not crash if not defined', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
