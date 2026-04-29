@@ -69,8 +69,6 @@ test('should not rewrite code for an unmatch patch', async (t) => {
   assert.deepEqual(rewrittenCode, snapshot)
 })
 
-/*
- * TODO: restore once https://github.com/nodejs/orchestrion-js/pull/59 lands
 test('should not rewrite code if a function query does not exist in file', async (t) => {
   const { modulePath, snap } = t.ctx
   const subscribers = {
@@ -79,9 +77,7 @@ test('should not rewrite code if a function query does not exist in file', async
         channelName: 'unitTest',
         module: { name: 'pkg-1', versionRange: '>=1', filePath: 'foo.js' },
         functionQuery: {
-          className: 'Foo',
-          methodName: 'nonExistentMethod',
-          kind: 'Async'
+          className: 'Blah',
         }
       }
     ]
@@ -96,4 +92,3 @@ test('should not rewrite code if a function query does not exist in file', async
   const snapshot = await snap(rewrittenCode)
   assert.deepEqual(rewrittenCode, snapshot)
 })
-*/
