@@ -6,7 +6,7 @@ const Module = require('node:module')
 const Snap = require('@matteo.collina/snap')
 const ModulePatch = require('../index.js')
 const path = require('node:path')
-const { readFileSync } = require('node:fs')
+const { readFileSync, mkdirSync, rmSync, statSync } = require('node:fs')
 
 test.beforeEach((t) => {
   const subscribers = {
@@ -45,15 +45,26 @@ test('should init ModulePatch', (t) => {
 })
 
 test('should rewrite code for a match transformer', async (t) => {
-  const { modulePath, modulePatch, snap } = t.ctx
-  modulePatch.patch()
-  const resolvedPath = Module._resolveFilename(modulePath, null, false)
-  const data = readFileSync(resolvedPath, 'utf8')
-  const testModule = new Module(resolvedPath)
-  testModule._compile(data, resolvedPath)
-  const rewrittenCode = testModule.exports.toString()
-  const snapshot = await snap(rewrittenCode)
-  assert.deepEqual(rewrittenCode, snapshot)
+  // cover the trace debugging dump code path
+  const tracingDir = __dirname + '/trace'
+  process.env.TRACING_DUMP = '1'
+  process.env.TRACING_DUMP_DIR = tracingDir
+  try {
+    mkdirSync(__dirname + '/trace', { recursive: true })
+    const { modulePath, modulePatch, snap } = t.ctx
+    modulePatch.patch()
+    const resolvedPath = Module._resolveFilename(modulePath, null, false)
+    const data = readFileSync(resolvedPath, 'utf8')
+    const testModule = new Module(resolvedPath)
+    testModule._compile(data, resolvedPath)
+    const rewrittenCode = testModule.exports.toString()
+    const snapshot = await snap(rewrittenCode)
+    assert.deepEqual(rewrittenCode, snapshot)
+    const expectedDump = path.join(tracingDir, modulePath)
+    assert.equal(statSync(expectedDump).isFile(), true)
+  } finally {
+    rmSync(tracingDir, { recursive: true, force: true })
+  }
 })
 
 test('should not rewrite code for an unmatch patch', async (t) => {
