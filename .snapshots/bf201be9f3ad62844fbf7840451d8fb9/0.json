@@ -1,0 +1,1 @@
+"class Foo {\n  constructor() {\n    this.name = 'foo'\n  }\n\n  doStuff() {\n    return 'doing stuff'\n  }\n}\n\nexport default Foo\n\n"
