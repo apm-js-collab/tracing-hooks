@@ -60,6 +60,7 @@ function dump(code, filename) {
   const path = require('node:path')
   const fs = require('node:fs')
 
+  /* c8 ignore next */
   const base = process.env.TRACING_DUMP_DIR ?? os.tmpdir()
   const dirname = path.dirname(filename)
   const basename = path.basename(filename)

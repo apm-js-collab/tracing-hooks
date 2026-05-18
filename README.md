@@ -1,20 +1,32 @@
 # Tracing Hooks
+
 This repository contains a ESM loader for injecting tracing channel hooks into Node.js modules. It also has a patch for Module to be used to patch CJS modules.
 
 ## Usage
 
-To load esm loader:
+Note: the module loading hooks API in Node.js has changed as of
+v26. To support all active Node.js versions with
+forward-compatibility, create a combined loader as an ESM module.
+
+This can be done for any CommonJS _or_ ES Module application, but
+the loader itself must use ESM.
 
 ```js
-// esm-loader.mjs
-import { register } from 'node:module';
+// loader.mjs
+import Module from 'node:module'
+
+// the synchronous hooks for newer node versions
+import { initialize, resolve, load } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
+import ModulePatch from '@apm-js-collab/tracing-hooks'
+
+// the instrumentations we want to apply
 const instrumentations = [
   {
     channelName: 'channel1',
     module: { name: 'pkg1', verisonRange: '>=1.0.0', filePath: 'index.js' },
     functionQuery: {
       className: 'Class1',
-      methodName: 'method1', 
+      methodName: 'method1',
       kind: 'Async'
     }
   },
@@ -23,58 +35,49 @@ const instrumentations = [
     module: { name: 'pkg2', verisonRange: '>=1.0.0', filePath: 'index.js' },
     functionQuery: {
       className: 'Class2,
-      methodName: 'method2', 
+      methodName: 'method2',
       kind: 'Sync'
     }
   }
 ]
 
-register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
-  data: { instrumentations }
-});
+// detection to decide module loader hooks to use
+// registerHooks was present but not stable until 24.13 and 25.1
+const version = (process.versions.node ?? '0.0.0')
+  .split('.')
+  .map(n => parseInt(n, 10))
+const stableSyncHooks = version[0] > 25 ||
+  version[0] === 25 && version[1] >= 1 ||
+  version[0] === 24 && version[1] >= 13
+
+if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
+  initialize({ instrumentations })
+  Module.registerHooks({ resolve, load })
+} else if (typeof Module.register === 'function') {
+  Module.register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
+    data: { instrumentations }
+  });
+
+  // ALSO patch `Module.prototype._compile` for the CJS side: when
+  // an ESM file `import`s a CJS package, Node loads the package's
+  // entry through the ESM bridge but resolves the package's
+  // INTERNAL `require()` calls through the CJS machinery.
+  // Those internal requires never reach the ESM resolve hook, so
+  // without this patch the file we actually want to instrument is
+  // loaded untransformed.
+  // This isn't necessary in the registerHooks case, because Node
+  // applies those hooks to all CJS and ESM modules.
+  new ModulePatch({ instrumentations }).patch();
+} else {
+  throw new Error('No available API to apply module load hooks')
+}
 ```
 
-To use the loader, you can run your Node.js application with the `--import` flag:
+To run your application with these instrumentations applied, pass
+it to the `--import` argument:
 
-```bash
-node --import esm-loader.mjs your-app.js
 ```
-
-To load CJS patch:
-
-```js
-// cjs-patch.js
-const ModulePatch = require('@apm-js-collab/tracing-hooks')
-const instrumentations = [
-  {
-    channelName: 'channel1',
-    module: { name: 'pkg1', verisonRange: '>=1.0.0', filePath: 'index.js' },
-    functionQuery: {
-      className: 'Class1',
-      methodName: 'method1', 
-      kind: 'Async'
-    }
-  },
-  {
-    channelName: 'channel2',
-    module: { name: 'pkg2', verisonRange: '>=1.0.0', filePath: 'index.js' },
-    functionQuery: {
-      className: 'Class2',
-      methodName: 'method2', 
-      kind: 'Sync'
-    }
-  }
-]
-
-
-const modulePatch = new ModulePatch({ instrumentations });
-modulePatch.patch()
-```
-
-To use the CJS patch you can run your Node.js application with the `--require` flag:
-
-```bash
-node --require cjs-patch.js your-app.js
+node --import=loader.mjs ./my-app.js
 ```
 
 ## Debugging

@@ -1,0 +1,1 @@
+"class Test {\n  constructor() {\n    this.name = 'Test'\n  }\n\n  getName() {\n    return this.name\n  }\n}\n\nexport default Test\n\n"
