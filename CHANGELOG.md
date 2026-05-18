@@ -1,5 +1,12 @@
 ## CHANGELOG
 
+## [0.8.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.7.0...tracing-hooks-v0.8.0) (2026-05-18)
+
+
+### Features
+
+* add support for synchronous `module.registerHooks` ([#27](https://github.com/apm-js-collab/tracing-hooks/issues/27)) ([abad7ae](https://github.com/apm-js-collab/tracing-hooks/commit/abad7ae3df4eebdd68ceb4bcb95be7445fd60df0))
+
 ## [0.7.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.6.0...tracing-hooks-v0.7.0) (2026-05-04)
 
 
