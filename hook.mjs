@@ -11,7 +11,11 @@ let transformers = null
 let packages = null
 let instrumentator = null
 
-const transformedModules = new Set()
+let diagnosticsHook;
+
+export function setDiagnosticsHook(hook) {
+  diagnosticsHook = hook
+}
 
 export async function initialize(data = {}) {
   return initializeSync(data)
@@ -81,17 +85,18 @@ export function loadResult(url, result) {
       const transformedCode = transformer.transform(code.toString('utf8'), 'unknown')
       result.source = transformedCode?.code
       result.shortCircuit = true
-      transformedModules.add(transformer.moduleName)
+      if (diagnosticsHook) {
+        diagnosticsHook(transformer.moduleName)
+      }
     } catch(err) {
       debug('Error transforming module %s: %o', url, err)
+      if (diagnosticsHook) {
+        diagnosticsHook(transformer.moduleName, err)
+      }
     } finally {
       transformer.free()
     }
   }
 
   return result
-}
-
-export function getTransformedModules() {
-  return transformedModules
 }
