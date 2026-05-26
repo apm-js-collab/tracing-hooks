@@ -11,6 +11,8 @@ let transformers = null
 let packages = null
 let instrumentator = null
 
+const transformedModules = new Set()
+
 export async function initialize(data = {}) {
   return initializeSync(data)
 }
@@ -79,6 +81,7 @@ export function loadResult(url, result) {
       const transformedCode = transformer.transform(code.toString('utf8'), 'unknown')
       result.source = transformedCode?.code
       result.shortCircuit = true
+      transformedModules.add(transformer.moduleName)
     } catch(err) {
       debug('Error transforming module %s: %o', url, err)
     } finally {
@@ -87,4 +90,8 @@ export function loadResult(url, result) {
   }
 
   return result
+}
+
+export function getTransformedModules() {
+  return transformedModules
 }
