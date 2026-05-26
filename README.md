@@ -105,7 +105,7 @@ or transformation fails. This hook will only work with the synchronous
 ```js
 import { setDiagnosticsHook } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
 
-setDiagnosticsHook(({ url, moduleName, error}) => {
+setDiagnosticsHook(({ url, moduleName, error }) => {
   if(error) {
     // injection failed
   } else {
