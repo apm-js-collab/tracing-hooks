@@ -86,12 +86,12 @@ export function loadResult(url, result) {
       result.source = transformedCode?.code
       result.shortCircuit = true
       if (diagnosticsHook) {
-        diagnosticsHook(transformer.moduleName)
+        diagnosticsHook({ url, moduleName: transformer.moduleName })
       }
     } catch(err) {
       debug('Error transforming module %s: %o', url, err)
       if (diagnosticsHook) {
-        diagnosticsHook(transformer.moduleName, err)
+        diagnosticsHook({ url, moduleName: transformer.moduleName, error: err })
       }
     } finally {
       transformer.free()
