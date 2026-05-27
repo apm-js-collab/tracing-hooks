@@ -95,3 +95,21 @@ case, the resolved filename of the module being patched is appended. For
 example, if we are patching `lib/index.js` in the `foo` package, and we set
 a base directory of `/tmp/dump/`, then the patched code will be written to
 `/tmp/dump/foo/lib/index.js`.
+
+### Diagnostics Hook
+
+A diagnostics hook can be set which is called every time a module is transformed 
+or transformation fails. This hook will only work with the synchronous 
+`registerHooks` because the older `register` runs in a different thread.
+
+```js
+import { setDiagnosticsHook } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
+
+setDiagnosticsHook(({ url, moduleName, error }) => {
+  if(error) {
+    // injection failed
+  } else {
+    // injection succeeded
+  }
+})
+```

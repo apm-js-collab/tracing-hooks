@@ -11,6 +11,12 @@ let transformers = null
 let packages = null
 let instrumentator = null
 
+let diagnosticsHook;
+
+export function setDiagnosticsHook(hook) {
+  diagnosticsHook = hook
+}
+
 export async function initialize(data = {}) {
   return initializeSync(data)
 }
@@ -79,8 +85,14 @@ export function loadResult(url, result) {
       const transformedCode = transformer.transform(code.toString('utf8'), 'unknown')
       result.source = transformedCode?.code
       result.shortCircuit = true
+      if (diagnosticsHook) {
+        diagnosticsHook({ url, moduleName: transformer.moduleName })
+      }
     } catch(err) {
       debug('Error transforming module %s: %o', url, err)
+      if (diagnosticsHook) {
+        diagnosticsHook({ url, moduleName: transformer.moduleName, error: err })
+      }
     } finally {
       transformer.free()
     }

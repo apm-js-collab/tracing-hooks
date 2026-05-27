@@ -201,3 +201,25 @@ test('should default initialization to not crash if not defined', async (t) => {
   const snapshot = await snap(result.source)
   assert.deepEqual(result.source, snapshot)
 })
+
+test('should rewrite code and call diagnostics hook', async (t) => {
+  const { syncLoaderRewriter, snap } = t.ctx
+  syncLoaderRewriter.setDiagnosticsHook(({url, moduleName, error}) => {
+    assert.equal(url, `file://${esmPath}`)
+    assert.equal(moduleName, 'esm-pkg')
+    assert.equal(error, undefined)
+  })
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  function nextLoad() {
+    const data = readFileSync(esmPath, 'utf8')
+    return {
+      format: 'module',
+      source: data
+    }
+  }
+  const url = syncLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  syncLoaderRewriter.load(url.url, {}, nextLoad)
+})
