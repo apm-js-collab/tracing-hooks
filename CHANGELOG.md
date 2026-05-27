@@ -1,5 +1,12 @@
 ## CHANGELOG
 
+## [0.9.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.8.0...tracing-hooks-v0.9.0) (2026-05-27)
+
+
+### Features
+
+* Add optional diagnostics hook ([#29](https://github.com/apm-js-collab/tracing-hooks/issues/29)) ([d33052b](https://github.com/apm-js-collab/tracing-hooks/commit/d33052b9521ed81ca31bf42d0a1ee7e9d664c149))
+
 ## [0.8.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.7.0...tracing-hooks-v0.8.0) (2026-05-18)
 
 
