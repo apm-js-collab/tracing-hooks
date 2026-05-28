@@ -1,17 +1,17 @@
 'use strict'
-import createDebug from 'debug';
+import createDebug from 'debug'
 import { readFile } from 'node:fs/promises'
 import { create } from '@apm-js-collab/code-transformer'
 import parse from 'module-details-from-path'
 import { fileURLToPath } from 'node:url'
 import getPackageVersion from './lib/get-package-version.js'
-import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs'
 const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
 let instrumentator = null
 
-let diagnosticsHook;
+let diagnosticsHook
 
 export function setDiagnosticsHook(hook) {
   diagnosticsHook = hook
@@ -82,13 +82,15 @@ export function loadResult(url, result) {
   if (code) {
     const transformer = transformers.get(url)
     try {
-      const transformedCode = transformer.transform(code.toString('utf8'), 'unknown')
+      const moduleType = result.format === 'module' ? 'esm' :
+        result.format === 'commonjs' ? 'cjs' : 'unknown'
+      const transformedCode = transformer.transform(code.toString('utf8'), moduleType)
       result.source = transformedCode?.code
       result.shortCircuit = true
       if (diagnosticsHook) {
         diagnosticsHook({ url, moduleName: transformer.moduleName })
       }
-    } catch(err) {
+    } catch (err) {
       debug('Error transforming module %s: %o', url, err)
       if (diagnosticsHook) {
         diagnosticsHook({ url, moduleName: transformer.moduleName, error: err })

@@ -201,3 +201,66 @@ test('should default initialization to not crash if not defined', async (t) => {
   const snapshot = await snap(result.source)
   assert.deepEqual(result.source, snapshot)
 })
+
+// The next three tests lock in the result.format → transformer module_type
+// mapping. Without that mapping, ESM modules get a CJS-style `require(...)`
+// prelude injected, which Node 22+ rejects with ERR_AMBIGUOUS_MODULE_SYNTAX.
+test('format=module emits ESM-shaped diagnostics_channel import', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  async function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  async function nextLoad() {
+    return {
+      format: 'module',
+      source: readFileSync(esmPath, 'utf8')
+    }
+  }
+  const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.shortCircuit, true)
+  assert.match(result.source, /^import .* from ["']diagnostics_channel["']/m,
+    'ESM target should be injected with `import ... from "diagnostics_channel"`')
+  assert.doesNotMatch(result.source, /=\s*require\(["']diagnostics_channel["']\)/,
+    'ESM target should not be injected with `require("diagnostics_channel")`')
+})
+
+test('format=commonjs emits CJS-shaped diagnostics_channel require', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
+  async function resolveFn() {
+    return { url: `file://${cjsPath}` }
+  }
+  async function nextLoad() {
+    return {
+      format: 'commonjs',
+      source: readFileSync(cjsPath, 'utf8')
+    }
+  }
+  const url = await esmLoaderRewriter.resolve('pkg-1', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.shortCircuit, true)
+  assert.match(result.source, /=\s*require\(["']diagnostics_channel["']\)/,
+    'CJS target should be injected with `require("diagnostics_channel")`')
+  assert.doesNotMatch(result.source, /^import .* from ["']diagnostics_channel["']/m,
+    'CJS target should not be injected with `import ... from "diagnostics_channel"`')
+})
+
+test('unrecognized format falls through to "unknown" without throwing', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
+  async function resolveFn() {
+    return { url: `file://${cjsPath}` }
+  }
+  async function nextLoad() {
+    return {
+      // Format the loader doesn't map to esm/cjs — Node may report 'json',
+      // 'wasm', 'builtin', or any future addition. None should crash the hook.
+      format: 'json',
+      source: readFileSync(cjsPath, 'utf8')
+    }
+  }
+  const url = await esmLoaderRewriter.resolve('pkg-1', {}, resolveFn)
+  await assert.doesNotReject(() => esmLoaderRewriter.load(url.url, {}, nextLoad))
+})
