@@ -1,5 +1,12 @@
 ## CHANGELOG
 
+## [0.9.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.0...tracing-hooks-v0.9.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* Supply `'esm'` to `transformer.transform()` if format is `'module'` ([#32](https://github.com/apm-js-collab/tracing-hooks/issues/32)) ([60d86e6](https://github.com/apm-js-collab/tracing-hooks/commit/60d86e68bc737a6c81fa9946121fed872e96b227))
+
 ## [0.9.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.8.0...tracing-hooks-v0.9.0) (2026-05-27)
 
 
