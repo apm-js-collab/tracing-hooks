@@ -29,7 +29,11 @@ class ModulePatch {
         if (transformer) {
           debug('transforming file %s', filename)
           try {
-            const transformedCode = transformer.transform(content, 'unknown')
+            // `Module.prototype._compile` only ever evaluates CJS source, so the
+            // module type is known. Passing 'unknown' here would let the
+            // transformer fall back to a generic mode and emit shapes that don't
+            // match a CJS target.
+            const transformedCode = transformer.transform(content, 'cjs')
             args[0] = transformedCode?.code
             if (process.env.TRACING_DUMP) {
               dump(args[0], filename)
