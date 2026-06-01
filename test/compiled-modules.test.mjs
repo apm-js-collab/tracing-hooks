@@ -81,11 +81,11 @@ test('compiled ESM (top-level await) is rewritten into importable ESM', async (t
   assert.equal(mod.default.name, 'Foo')
 })
 
-// Makes sure the fixture really triggers the bug. If someone removes the
-// top-level `await` from foo.js, the test above would still pass even though it
-// no longer tests anything. Running the old 'unknown' path proves the fixture
-// still breaks with the wrong module type.
-test('compiled ESM fixture reproduces ERR_AMBIGUOUS_MODULE_SYNTAX under the old "unknown" path', async () => {
+// Makes sure the fixture really triggers the bug. Running the old 'unknown' path 
+// injects a CJS `require(...)` into ESM, which Node rejects — as ERR_AMBIGUOUS_MODULE_SYNTAX
+// on Node >= 22 (require + top-level await) and as "require is not defined in
+// ES module scope" on Node 20. Either way the module is broken.
+test('compiled ESM fixture is broken when transformed with the wrong (old "unknown") module type', async () => {
   const file = fixture('esm-pkg-compiled')
   const instrumentator = create([esmInstrumentation])
   const transformer = instrumentator.getTransformer('esm-pkg-compiled', '1.0.0', 'foo.js')
@@ -94,7 +94,9 @@ test('compiled ESM fixture reproduces ERR_AMBIGUOUS_MODULE_SYNTAX under the old 
     const out = transformer.transform(readFileSync(file, 'utf8'), 'unknown')
     await assert.rejects(
       () => importEsmSource(out.code),
-      (err) => err.code === 'ERR_AMBIGUOUS_MODULE_SYNTAX')
+      (err) =>
+        err.code === 'ERR_AMBIGUOUS_MODULE_SYNTAX' || // Node >= 22
+        /require is not defined/.test(err.message))   // Node 20
   } finally {
     transformer.free()
   }
