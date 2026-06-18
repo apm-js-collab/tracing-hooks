@@ -1,5 +1,6 @@
 ## CHANGELOG
 
+
 ## [0.9.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.0...tracing-hooks-v0.9.1) (2026-05-29)
 
 
