@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.10.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.1...tracing-hooks-v0.10.0) (2026-06-18)
+
+
+### Features
+
+* Release 0.10.0 ([#37](https://github.com/apm-js-collab/tracing-hooks/issues/37)) ([7fd56d0](https://github.com/apm-js-collab/tracing-hooks/commit/7fd56d0aad21138439dc2fe64038e10ebb801a59))
+
 ## [0.9.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.0...tracing-hooks-v0.9.1) (2026-05-29)
 
 
