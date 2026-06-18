@@ -1,7 +1,12 @@
 'use strict'
+
+const createFrom = process.env.TRACING_TRANSFORMER_MODULE != null
+  ? process.env.TRACING_TRANSFORMER_MODULE
+  : '@apm-js-collab/code-transformer'
+const { create } = await import(createFrom)
+
 import createDebug from 'debug'
 import { readFile } from 'node:fs/promises'
-import { create } from '@apm-js-collab/code-transformer'
 import parse from 'module-details-from-path'
 import { fileURLToPath } from 'node:url'
 import getPackageVersion from './lib/get-package-version.js'
