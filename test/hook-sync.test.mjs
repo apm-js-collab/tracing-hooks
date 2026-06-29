@@ -202,6 +202,39 @@ test('should default initialization to not crash if not defined', async (t) => {
   assert.deepEqual(result.source, snapshot)
 })
 
+test('should rewrite code when the loader provides source as a Uint8Array (not a Buffer)', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  const url = `file://${esmPath}`
+  function resolveFn() {
+    return { url }
+  }
+  // Node's synchronous module hooks (`Module.registerHooks`, Node >= 24.13 / 25.1 / 26) deliver the
+  // module source as a plain `Uint8Array`, unlike the async loader which provides a `Buffer`. A plain
+  // `Uint8Array.prototype.toString('utf8')` ignores the encoding and returns comma-joined byte values
+  // rather than the decoded text, so this is the exact shape that must be handled.
+  function nextLoadBytes() {
+    const buf = readFileSync(esmPath)
+    const source = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+    assert.ok(!Buffer.isBuffer(source), 'precondition: source is a plain Uint8Array, not a Buffer')
+    return { format: 'module', source }
+  }
+  function nextLoadString() {
+    return { format: 'module', source: readFileSync(esmPath, 'utf8') }
+  }
+
+  syncLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const fromString = syncLoaderRewriter.load(url, {}, nextLoadString)
+  syncLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const fromBytes = syncLoaderRewriter.load(url, {}, nextLoadBytes)
+
+  assert.equal(fromBytes.format, 'module')
+  assert.equal(fromBytes.shortCircuit, true, 'matching module must be transformed even when source is a Uint8Array')
+  assert.equal(typeof fromBytes.source, 'string')
+  // Byte-source and string-source inputs must produce identical transformed output.
+  assert.equal(fromBytes.source, fromString.source)
+})
+
 test('should rewrite code and call diagnostics hook', async (t) => {
   const { syncLoaderRewriter, snap } = t.ctx
   syncLoaderRewriter.setDiagnosticsHook(({url, moduleName, error}) => {
