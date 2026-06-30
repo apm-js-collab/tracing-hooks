@@ -84,7 +84,12 @@ export function loadResult(url, result) {
     try {
       const moduleType = result.format === 'module' ? 'esm' :
         result.format === 'commonjs' ? 'cjs' : 'unknown'
-      const transformedCode = transformer.transform(code.toString('utf8'), moduleType)
+      // Node's synchronous hooks (`Module.registerHooks`) deliver `source` as a plain `Uint8Array`,
+      // whereas the async loader delivers a `Buffer`. `Uint8Array.prototype.toString('utf8')` ignores
+      // the encoding and returns comma-joined byte values instead of the decoded text, so decode via
+      // `Buffer` for anything that isn't already a string.
+      const source = typeof code === 'string' ? code : Buffer.from(code).toString('utf8')
+      const transformedCode = transformer.transform(source, moduleType)
       result.source = transformedCode?.code
       result.shortCircuit = true
       if (diagnosticsHook) {
