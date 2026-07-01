@@ -1,16 +1,13 @@
 'use strict'
 
-const createFrom = process.env.TRACING_TRANSFORMER_MODULE != null
-  ? process.env.TRACING_TRANSFORMER_MODULE
-  : '@apm-js-collab/code-transformer'
-const { create } = await import(createFrom)
-
-import createDebug from 'debug'
 import { readFile } from 'node:fs/promises'
-import parse from 'module-details-from-path'
-import { fileURLToPath } from 'node:url'
-import getPackageVersion from './lib/get-package-version.js'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { create as defaultCreate } from '@apm-js-collab/code-transformer'
+import createDebug from 'debug'
+import parse from 'module-details-from-path'
+import getPackageVersion from './lib/get-package-version.js'
+
 const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
@@ -22,10 +19,10 @@ export function setDiagnosticsHook(hook) {
   diagnosticsHook = hook
 }
 
-export async function initialize(data = {}) {
-  return initializeSync(data)
+export async function initialize(data = {}, { create = defaultCreate } = {}) {
+  return initializeSync(data, { create })
 }
-export function initializeSync(data = {}) {
+export function initializeSync(data = {}, { create = defaultCreate } = {}) {
   const instrumentations = data?.instrumentations || []
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))
