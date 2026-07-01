@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.10.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.0...tracing-hooks-v0.10.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* decode Uint8Array module source from synchronous hooks ([#41](https://github.com/apm-js-collab/tracing-hooks/issues/41)) ([cc62e2b](https://github.com/apm-js-collab/tracing-hooks/commit/cc62e2bbcf012bcb8301fd515c034df459824474))
+
 ## [0.10.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.1...tracing-hooks-v0.10.0) (2026-06-18)
 
 
