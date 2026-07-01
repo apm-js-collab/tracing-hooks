@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.11.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.1...tracing-hooks-v0.11.0) (2026-07-01)
+
+
+### Features
+
+* Update orchestrion-js to v0.16.0 ([#43](https://github.com/apm-js-collab/tracing-hooks/issues/43)) ([bb3591a](https://github.com/apm-js-collab/tracing-hooks/commit/bb3591aabdb1d1aa2422e790efb614914d076c54))
+
 ## [0.10.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.0...tracing-hooks-v0.10.1) (2026-06-30)
 
 
