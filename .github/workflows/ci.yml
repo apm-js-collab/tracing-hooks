@@ -11,8 +11,8 @@ jobs:
       matrix:
         # 24.11 is the last 24.x without the require(esm) fix from
         # https://github.com/nodejs/node/pull/60380, which a bare `24` now resolves
-        # past. Pinned so the `transformCjs: false` path stays covered on a 24.x that
-        # still needs it, alongside 20 and 22.
+        # past. Pinned so the async hooks stay covered on a 24.x that still crashes if
+        # they hand `source` back for CommonJS, alongside 20 and 22.
         node-version: [20, 22, 24.11, 24]
     steps:
       - uses: actions/checkout@v4

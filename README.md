@@ -50,57 +50,32 @@ const stableSyncHooks = version[0] > 25 ||
   version[0] === 25 && version[1] >= 1 ||
   version[0] === 24 && version[1] >= 13
 
-// require(esm) is only safe to trigger from the async `load` hook
-// as of 24.12 — see `transformCjs` below
-const safeRequireEsm = version[0] > 24 ||
-  version[0] === 24 && version[1] >= 12
-
 if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
   initialize({ instrumentations })
   Module.registerHooks({ resolve, load })
 } else if (typeof Module.register === 'function') {
   Module.register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
-    data: { instrumentations, transformCjs: safeRequireEsm }
+    data: { instrumentations }
   });
 
-  // ALSO patch `Module.prototype._compile` for the CJS side: when
-  // an ESM file `import`s a CJS package, Node loads the package's
-  // entry through the ESM bridge but resolves the package's
-  // INTERNAL `require()` calls through the CJS machinery.
-  // Those internal requires never reach the ESM resolve hook, so
-  // without this patch the file we actually want to instrument is
-  // loaded untransformed.
-  // This isn't necessary in the registerHooks case, because Node
-  // applies those hooks to all CJS and ESM modules.
+  // ALSO patch `Module.prototype._compile`. This is REQUIRED, not an
+  // optimisation: on this path CommonJS is instrumented entirely by
+  // the patch, never by the async `load` hook.
+  // Two reasons. When an ESM file `import`s a CJS package, Node
+  // resolves the package's INTERNAL `require()` calls through the CJS
+  // machinery, so they never reach the ESM resolve hook. And handing
+  // `source` back for a CommonJS module from the async `load` hook
+  // makes Node evaluate it on the synchronous require(esm) bridge,
+  // which throws ERR_VM_MODULE_LINK_FAILURE on Node < 24.12 whenever
+  // that module's top-level require() chain reaches an ES module
+  // (https://github.com/nodejs/node/issues/59666).
+  // Neither applies in the registerHooks case, because Node applies
+  // those hooks to all CJS and ESM modules.
   new ModulePatch({ instrumentations }).patch();
 } else {
   throw new Error('No available API to apply module load hooks')
 }
 ```
-
-### `transformCjs`
-
-The async `load` hook transforms CommonJS by default. Doing so means
-returning `source` for a CommonJS module, which makes Node evaluate
-that module on the synchronous `require(esm)` bridge. On Node
-**< 24.12** that bridge throws `ERR_VM_MODULE_LINK_FAILURE` whenever
-the module's top-level `require()` chain reaches an ES module — for
-example `koa` → `is-generator-function` → `generator-function`. It is
-a Node bug ([nodejs/node#59666][bug]), fixed in 24.12.0 by
-[nodejs/node#60380][fix] and not backported to 22.x or 20.x.
-
-Passing `transformCjs: false` makes the async `load` hook return
-CommonJS untouched, so Node loads it through the ordinary CommonJS
-loader and `ModulePatch` transforms it there instead. Use it on any
-version below 24.12, as the loader above does. `ModulePatch` is
-required either way.
-
-The option has no effect on the synchronous `registerHooks` path,
-which does not use the `require(esm)` bridge and has no `ModulePatch`
-to fall back on.
-
-[bug]: https://github.com/nodejs/node/issues/59666
-[fix]: https://github.com/nodejs/node/pull/60380
 
 To run your application with these instrumentations applied, pass
 it to the `--import` argument:

@@ -102,18 +102,20 @@ test('compiled ESM fixture is broken when transformed with the wrong (old "unkno
   }
 })
 
+// Driven through the sync hooks: only they transform CommonJS in the loader. The async
+// `load` hook defers CommonJS to the `_compile` patch.
 test('compiled CJS is rewritten into requirable CommonJS', async (t) => {
   const { hook } = t.ctx
   hook.initialize({ instrumentations: [cjsInstrumentation] })
   const file = fixture('cjs-pkg-compiled')
-  async function resolveFn() {
+  function resolveFn() {
     return { url: `file://${file}` }
   }
-  async function nextLoad() {
+  function nextLoad() {
     return { format: 'commonjs', source: readFileSync(file, 'utf8') }
   }
-  const url = await hook.resolve('cjs-pkg-compiled', {}, resolveFn)
-  const result = await hook.load(url.url, {}, nextLoad)
+  const url = hook.resolveSync('cjs-pkg-compiled', {}, resolveFn)
+  const result = hook.loadSync(url.url, {}, nextLoad)
 
   assert.equal(result.format, 'commonjs')
   assert.equal(result.shortCircuit, true)

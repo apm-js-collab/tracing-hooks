@@ -9,12 +9,10 @@ const execFileAsync = promisify(execFile)
 
 const appDir = path.join(import.meta.dirname, 'example-deps/lib')
 
+// `Module.registerHooks` exists earlier but only became stable in 24.13 / 25.1, which is
+// the boundary the README tells consumers to switch on. Below it, the async hooks and
+// the `_compile` patch are used together.
 const [major, minor] = process.versions.node.split('.').map(n => parseInt(n, 10))
-// Node < 24.12 crashes when a CommonJS module is evaluated on the require(esm) bridge
-// and its top-level require chain reaches ESM (nodejs/node#59666, fixed by
-// nodejs/node#60380 and not backported to 22.x).
-const safeRequireEsm = major > 24 || (major === 24 && minor >= 12)
-// `Module.registerHooks` exists earlier but only became stable in 24.13 / 25.1.
 const stableSyncHooks = major > 25 || (major === 25 && minor >= 1) || (major === 24 && minor >= 13)
 
 /**
@@ -29,9 +27,12 @@ async function runApp(loader, app, scenario) {
   return JSON.parse(stdout)
 }
 
-test('async hooks + transformCjs:false', async (t) => {
-  // The regression. With `transformCjs` left at its default, this app exits non-zero
-  // with ERR_VM_MODULE_LINK_FAILURE on Node < 24.12 — see the last test in this file.
+test('async hooks + the _compile patch', async (t) => {
+  // The regression. When the async `load` hook returned `source` for CommonJS, Node
+  // evaluated this module on the synchronous require(esm) bridge and linking
+  // `esm-require-dep`'s nested `import './sub.mjs'` failed with
+  // ERR_VM_MODULE_LINK_FAILURE (nodejs/node#59666), so the app exited non-zero on every
+  // Node below 24.12.
   await t.test('instrumented CJS package whose require chain reaches ESM', async () => {
     const { result, events } = await runApp('register-async.mjs', 'esm-app.mjs', 'cjs-require-esm')
 
@@ -47,7 +48,8 @@ test('async hooks + transformCjs:false', async (t) => {
     assert.equal(result, 'hello world')
   })
 
-  // Opting out of CommonJS must not touch ESM, which the `load` hook still owns.
+  // Deferring CommonJS must not touch ESM, which the `load` hook still owns — there is
+  // no `_compile` to fall back on for ES modules.
   await t.test('instrumented ESM package', async () => {
     const { result, events } = await runApp('register-async.mjs', 'esm-app.mjs', 'esm')
 
@@ -63,42 +65,25 @@ test('async hooks + transformCjs:false', async (t) => {
   })
 })
 
-// No `_compile` patch here: whatever gets instrumented is instrumented by the hook.
-test('async hooks with the default transformCjs', async (t) => {
-  await t.test('instrumented CJS package with no ESM dependencies', async () => {
-    const { result, events } = await runApp('register-async-cjs.mjs', 'esm-app.mjs', 'cjs-plain')
+// Pins the caveat of deferring CommonJS: the `_compile` patch is now the only thing that
+// instruments it on the async path, so registering the hooks without the patch silently
+// instruments nothing. The README always pairs them.
+test('async hooks without the _compile patch do not instrument CJS', async (t) => {
+  await t.test('the module still loads, untransformed', async () => {
+    const { result, events } = await runApp('register-async-no-patch.mjs', 'esm-app.mjs', 'cjs-require-esm')
 
-    assert.deepEqual(events, ['start', 'end'])
-    assert.equal(result, 'hello world')
+    assert.deepEqual(events, [], 'nothing can transform CommonJS without the _compile patch')
+    assert.equal(result, 'middleware:esm-require-dep-linked', 'and the module itself still works')
   })
 
-  await t.test('instrumented ESM package', async () => {
-    const { result, events } = await runApp('register-async-cjs.mjs', 'esm-app.mjs', 'esm')
+  await t.test('ESM is unaffected', async () => {
+    const { events } = await runApp('register-async-no-patch.mjs', 'esm-app.mjs', 'esm')
 
     assert.deepEqual(events, ['start', 'end'])
-    assert.equal(result, 'doing stuff')
-  })
-
-  await t.test('CJS package whose require chain reaches ESM', { skip: !safeRequireEsm }, async () => {
-    const { result, events } = await runApp('register-async-cjs.mjs', 'esm-app.mjs', 'cjs-require-esm')
-
-    assert.deepEqual(events, ['start', 'end'])
-    assert.equal(result, 'middleware:esm-require-dep-linked')
-  })
-
-  // Pins the reason `transformCjs: false` exists. If this ever stops throwing on a
-  // version below 24.12, the Node fix was backported and the opt-out can be relaxed.
-  await t.test('CJS package whose require chain reaches ESM crashes below Node 24.12', { skip: safeRequireEsm }, async () => {
-    await assert.rejects(
-      () => runApp('register-async-cjs.mjs', 'esm-app.mjs', 'cjs-require-esm'),
-      (err) => {
-        assert.match(err.stderr, /ERR_VM_MODULE_LINK_FAILURE/)
-        return true
-      })
   })
 })
 
-// The sync hooks transform CommonJS themselves and ignore `transformCjs`.
+// The sync hooks are the only path that transforms CommonJS in the loader itself.
 test('sync hooks instrument a CJS package whose require chain reaches ESM', { skip: !stableSyncHooks }, async () => {
   const { result, events } = await runApp('register-sync.mjs', 'esm-app.mjs', 'cjs-require-esm')
 

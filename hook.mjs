@@ -1,6 +1,5 @@
 'use strict'
 import createDebug from 'debug'
-import { readFile } from 'node:fs/promises'
 import { create } from '@apm-js-collab/code-transformer'
 import parse from 'module-details-from-path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +9,6 @@ const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
 let instrumentator = null
-let transformCjs = true
 
 let diagnosticsHook
 
@@ -26,7 +24,6 @@ export function initializeSync(data = {}) {
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))
   transformers = new Map()
-  transformCjs = data?.transformCjs ?? true
 }
 
 export async function resolve(specifier, context, nextResolve) {
@@ -56,31 +53,30 @@ export async function load(url, context, nextLoad) {
   }
 
   if (result.format === 'commonjs') {
-    if (transformCjs === false) {
-      // Hand the module back exactly as Node produced it (`source` is null), so it
-      // goes down the ordinary CommonJS loader where the `_compile` patch
-      // (`ModulePatch`) transforms it instead. `resolve` has already put a
-      // transformer in the map for this URL and nothing downstream will free it, so
-      // do that here.
-      debug('deferring commonjs module to the _compile patch %s', url)
-      const transformer = transformers.get(url)
-      transformer.free()
-      transformers.delete(url)
-      return result
-    }
-
-    const parsedUrl = new URL(result.responseURL ?? url)
-    result.source ??= await readFile(parsedUrl)
-    /* c8 ignore next - mysteriously uncovered closing brace? */
+    // CommonJS is always left to the `Module.prototype._compile` patch
+    // (`ModulePatch`), which these hooks are only ever registered alongside.
+    // Returning `source` for a CommonJS module instead makes Node evaluate it on the
+    // synchronous require(esm) bridge, which throws ERR_VM_MODULE_LINK_FAILURE on
+    // Node < 24.12 when the module's top-level require() chain reaches an ES module
+    // (https://github.com/nodejs/node/issues/59666). Handing the module back exactly
+    // as Node produced it (`source` is null) sends it down the ordinary CommonJS
+    // loader, where `_compile` transforms it.
+    //
+    // `resolve` has already put a transformer in the map for this URL and nothing
+    // downstream will free it, so do that here.
+    debug('deferring commonjs module to the _compile patch %s', url)
+    const transformer = transformers.get(url)
+    transformer.free()
+    transformers.delete(url)
+    return result
   }
 
   return loadResult(url, result)
 }
 
-// `transformCjs` deliberately has no effect here: the synchronous hooks are never
-// paired with a `_compile` patch, so they are the only thing that can transform
-// CommonJS, and they don't evaluate it on the require(esm) bridge that makes the
-// async hook's CommonJS handling unsafe on Node < 24.12.
+// Unlike the async `load` hook above, this one must transform CommonJS: the sync hooks
+// are never paired with a `_compile` patch, so they are the only thing that can, and
+// they don't evaluate CommonJS on the require(esm) bridge.
 export function loadSync(url, context, nextLoad) {
   const result = nextLoad(url, context)
 

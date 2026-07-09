@@ -235,6 +235,31 @@ test('should rewrite code when the loader provides source as a Uint8Array (not a
   assert.equal(fromBytes.source, fromString.source)
 })
 
+// The sync hooks are the only path that transforms CommonJS in the loader — there is no
+// `_compile` patch alongside `Module.registerHooks` — so the format=commonjs →
+// module_type=cjs mapping has to hold here. A CJS target injected with an ESM `import`
+// prelude would not compile.
+test('format=commonjs emits CJS-shaped diagnostics_channel require', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
+  function resolveFn() {
+    return { url: `file://${cjsPath}` }
+  }
+  function nextLoad() {
+    return {
+      format: 'commonjs',
+      source: readFileSync(cjsPath, 'utf8')
+    }
+  }
+  const url = syncLoaderRewriter.resolve('pkg-1', {}, resolveFn)
+  const result = syncLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.shortCircuit, true)
+  assert.match(result.source, /=\s*require\(["']diagnostics_channel["']\)/,
+    'CJS target should be injected with `require("diagnostics_channel")`')
+  assert.doesNotMatch(result.source, /^import .* from ["']diagnostics_channel["']/m,
+    'CJS target should not be injected with `import ... from "diagnostics_channel"`')
+})
+
 test('should rewrite code and call diagnostics hook', async (t) => {
   const { syncLoaderRewriter, snap } = t.ctx
   syncLoaderRewriter.setDiagnosticsHook(({url, moduleName, error}) => {
