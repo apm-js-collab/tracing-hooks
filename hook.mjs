@@ -10,6 +10,7 @@ const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
 let instrumentator = null
+let transformCjs = true
 
 let diagnosticsHook
 
@@ -25,6 +26,7 @@ export function initializeSync(data = {}) {
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))
   transformers = new Map()
+  transformCjs = data?.transformCjs ?? true
 }
 
 export async function resolve(specifier, context, nextResolve) {
@@ -54,6 +56,19 @@ export async function load(url, context, nextLoad) {
   }
 
   if (result.format === 'commonjs') {
+    if (transformCjs === false) {
+      // Hand the module back exactly as Node produced it (`source` is null), so it
+      // goes down the ordinary CommonJS loader where the `_compile` patch
+      // (`ModulePatch`) transforms it instead. `resolve` has already put a
+      // transformer in the map for this URL and nothing downstream will free it, so
+      // do that here.
+      debug('deferring commonjs module to the _compile patch %s', url)
+      const transformer = transformers.get(url)
+      transformer.free()
+      transformers.delete(url)
+      return result
+    }
+
     const parsedUrl = new URL(result.responseURL ?? url)
     result.source ??= await readFile(parsedUrl)
     /* c8 ignore next - mysteriously uncovered closing brace? */
@@ -62,6 +77,10 @@ export async function load(url, context, nextLoad) {
   return loadResult(url, result)
 }
 
+// `transformCjs` deliberately has no effect here: the synchronous hooks are never
+// paired with a `_compile` patch, so they are the only thing that can transform
+// CommonJS, and they don't evaluate it on the require(esm) bridge that makes the
+// async hook's CommonJS handling unsafe on Node < 24.12.
 export function loadSync(url, context, nextLoad) {
   const result = nextLoad(url, context)
 

@@ -125,6 +125,70 @@ test('should rewrite code if it matches a subscriber and a cjs module(responseUr
   assert.deepEqual(result.source, snapshot)
 })
 
+// With `transformCjs: false` the hook must hand CommonJS straight back so Node loads it
+// through the ordinary CJS loader, where the `_compile` patch transforms it. Supplying
+// `source` here would instead evaluate the module on the synchronous require(esm)
+// bridge, which throws ERR_VM_MODULE_LINK_FAILURE on Node < 24.12 whenever the module's
+// top-level require() chain reaches ESM (nodejs/node#59666).
+test('should not rewrite a cjs module when transformCjs is false', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  esmLoaderRewriter.initialize({
+    transformCjs: false,
+    instrumentations: [
+      {
+        channelName: 'unitTestCjs',
+        module: { name: 'pkg-1', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Async' }
+      }
+    ]
+  })
+  const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
+  async function resolveFn() {
+    return { url: `file://${cjsPath}` }
+  }
+  // Node's `defaultLoad` reports `source: null` for commonjs; the hook must not fill it in.
+  async function nextLoad() {
+    return { format: 'commonjs', source: null }
+  }
+
+  const url = await esmLoaderRewriter.resolve('pkg-1', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.format, 'commonjs')
+  assert.equal(result.source, null, 'source must stay null so the CJS loader handles the module')
+  assert.ok(!result.shortCircuit)
+
+  // `resolve` registered a transformer for this URL and the skip path is the only thing
+  // that can free it. A second load must not reach the freed transformer.
+  const again = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.ok(!again.shortCircuit)
+})
+
+test('should still rewrite an esm module when transformCjs is false', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  esmLoaderRewriter.initialize({
+    transformCjs: false,
+    instrumentations: [
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Async' }
+      }
+    ]
+  })
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  async function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  async function nextLoad() {
+    return { format: 'module', source: readFileSync(esmPath, 'utf8') }
+  }
+
+  const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.shortCircuit, true)
+  assert.match(result.source, /^import .* from ["']diagnostics_channel["']/m)
+})
+
 test('should not rewrite code if it does not match a subscriber and a cjs module', async (t) => {
   const { esmLoaderRewriter, snap } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-2/index.js')

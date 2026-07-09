@@ -50,12 +50,17 @@ const stableSyncHooks = version[0] > 25 ||
   version[0] === 25 && version[1] >= 1 ||
   version[0] === 24 && version[1] >= 13
 
+// require(esm) is only safe to trigger from the async `load` hook
+// as of 24.12 — see `transformCjs` below
+const safeRequireEsm = version[0] > 24 ||
+  version[0] === 24 && version[1] >= 12
+
 if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
   initialize({ instrumentations })
   Module.registerHooks({ resolve, load })
 } else if (typeof Module.register === 'function') {
   Module.register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
-    data: { instrumentations }
+    data: { instrumentations, transformCjs: safeRequireEsm }
   });
 
   // ALSO patch `Module.prototype._compile` for the CJS side: when
@@ -72,6 +77,30 @@ if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
   throw new Error('No available API to apply module load hooks')
 }
 ```
+
+### `transformCjs`
+
+The async `load` hook transforms CommonJS by default. Doing so means
+returning `source` for a CommonJS module, which makes Node evaluate
+that module on the synchronous `require(esm)` bridge. On Node
+**< 24.12** that bridge throws `ERR_VM_MODULE_LINK_FAILURE` whenever
+the module's top-level `require()` chain reaches an ES module — for
+example `koa` → `is-generator-function` → `generator-function`. It is
+a Node bug ([nodejs/node#59666][bug]), fixed in 24.12.0 by
+[nodejs/node#60380][fix] and not backported to 22.x or 20.x.
+
+Passing `transformCjs: false` makes the async `load` hook return
+CommonJS untouched, so Node loads it through the ordinary CommonJS
+loader and `ModulePatch` transforms it there instead. Use it on any
+version below 24.12, as the loader above does. `ModulePatch` is
+required either way.
+
+The option has no effect on the synchronous `registerHooks` path,
+which does not use the `require(esm)` bridge and has no `ModulePatch`
+to fall back on.
+
+[bug]: https://github.com/nodejs/node/issues/59666
+[fix]: https://github.com/nodejs/node/pull/60380
 
 To run your application with these instrumentations applied, pass
 it to the `--import` argument:

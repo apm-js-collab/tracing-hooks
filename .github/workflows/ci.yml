@@ -9,7 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        # 24.11 is the last 24.x without the require(esm) fix from
+        # https://github.com/nodejs/node/pull/60380, which a bare `24` now resolves
+        # past. Pinned so the `transformCjs: false` path stays covered on a 24.x that
+        # still needs it, alongside 20 and 22.
+        node-version: [20, 22, 24.11, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
