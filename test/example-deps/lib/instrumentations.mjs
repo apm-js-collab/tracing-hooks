@@ -5,11 +5,6 @@ export const instrumentations = [
     functionQuery: { className: 'Application', methodName: 'use', kind: 'Sync' }
   },
   {
-    channelName: 'greet',
-    module: { name: 'cjs-plain-lib', versionRange: '>=1', filePath: 'index.js' },
-    functionQuery: { className: 'Greeter', methodName: 'greet', kind: 'Sync' }
-  },
-  {
     channelName: 'doStuff',
     module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
     functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Async' }

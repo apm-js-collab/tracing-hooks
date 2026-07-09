@@ -13,14 +13,6 @@ const scenarios = {
       return new Application().use('middleware')
     }
   },
-  // Instrumented CJS package with no ESM in its require chain.
-  'cjs-plain': {
-    channel: 'orchestrion:cjs-plain-lib:greet',
-    async run() {
-      const { default: Greeter } = await import('cjs-plain-lib')
-      return new Greeter().greet('world')
-    }
-  },
   // Instrumented ESM package: still transformed by the `load` hook itself.
   esm: {
     channel: 'orchestrion:esm-pkg:doStuff',

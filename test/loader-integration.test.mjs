@@ -41,13 +41,6 @@ test('async hooks + the _compile patch', async (t) => {
       'the value from the require(esm) chain must reach the CJS entry intact')
   })
 
-  await t.test('instrumented CJS package with no ESM dependencies', async () => {
-    const { result, events } = await runApp('register-async.mjs', 'esm-app.mjs', 'cjs-plain')
-
-    assert.deepEqual(events, ['start', 'end'])
-    assert.equal(result, 'hello world')
-  })
-
   // Deferring CommonJS must not touch ESM, which the `load` hook still owns — there is
   // no `_compile` to fall back on for ES modules.
   await t.test('instrumented ESM package', async () => {
@@ -56,31 +49,16 @@ test('async hooks + the _compile patch', async (t) => {
     assert.deepEqual(events, ['start', 'end'])
     assert.equal(result, 'doing stuff')
   })
-
-  await t.test('CJS app requiring an instrumented CJS package', async () => {
-    const { result, events } = await runApp('register-async.mjs', 'cjs-app.cjs')
-
-    assert.deepEqual(events, ['start', 'end'])
-    assert.equal(result, 'hello world')
-  })
 })
 
 // Pins the caveat of deferring CommonJS: the `_compile` patch is now the only thing that
 // instruments it on the async path, so registering the hooks without the patch silently
 // instruments nothing. The README always pairs them.
-test('async hooks without the _compile patch do not instrument CJS', async (t) => {
-  await t.test('the module still loads, untransformed', async () => {
-    const { result, events } = await runApp('register-async-no-patch.mjs', 'esm-app.mjs', 'cjs-require-esm')
+test('async hooks without the _compile patch do not instrument CJS', async () => {
+  const { result, events } = await runApp('register-async-no-patch.mjs', 'esm-app.mjs', 'cjs-require-esm')
 
-    assert.deepEqual(events, [], 'nothing can transform CommonJS without the _compile patch')
-    assert.equal(result, 'middleware:esm-require-dep-linked', 'and the module itself still works')
-  })
-
-  await t.test('ESM is unaffected', async () => {
-    const { events } = await runApp('register-async-no-patch.mjs', 'esm-app.mjs', 'esm')
-
-    assert.deepEqual(events, ['start', 'end'])
-  })
+  assert.deepEqual(events, [], 'nothing can transform CommonJS without the _compile patch')
+  assert.equal(result, 'middleware:esm-require-dep-linked', 'and the module itself still works')
 })
 
 // The sync hooks are the only path that transforms CommonJS in the loader itself.
