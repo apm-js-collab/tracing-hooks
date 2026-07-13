@@ -58,15 +58,19 @@ if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
     data: { instrumentations }
   });
 
-  // ALSO patch `Module.prototype._compile` for the CJS side: when
-  // an ESM file `import`s a CJS package, Node loads the package's
-  // entry through the ESM bridge but resolves the package's
-  // INTERNAL `require()` calls through the CJS machinery.
-  // Those internal requires never reach the ESM resolve hook, so
-  // without this patch the file we actually want to instrument is
-  // loaded untransformed.
-  // This isn't necessary in the registerHooks case, because Node
-  // applies those hooks to all CJS and ESM modules.
+  // ALSO patch `Module.prototype._compile`. This is REQUIRED, not an
+  // optimisation: on this path CommonJS is instrumented entirely by
+  // the patch, never by the async `load` hook.
+  // Two reasons. When an ESM file `import`s a CJS package, Node
+  // resolves the package's INTERNAL `require()` calls through the CJS
+  // machinery, so they never reach the ESM resolve hook. And handing
+  // `source` back for a CommonJS module from the async `load` hook
+  // makes Node evaluate it on the synchronous require(esm) bridge,
+  // which throws ERR_VM_MODULE_LINK_FAILURE on Node < 24.12 whenever
+  // that module's top-level require() chain reaches an ES module
+  // (https://github.com/nodejs/node/issues/59666).
+  // Neither applies in the registerHooks case, because Node applies
+  // those hooks to all CJS and ESM modules.
   new ModulePatch({ instrumentations }).patch();
 } else {
   throw new Error('No available API to apply module load hooks')
