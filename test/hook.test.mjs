@@ -246,3 +246,79 @@ test('unrecognized format falls through to "unknown" without throwing', async (t
   const url = await esmLoaderRewriter.resolve('pkg-1', {}, resolveFn)
   await assert.doesNotReject(() => esmLoaderRewriter.load(url.url, {}, nextLoad))
 })
+
+// On the `Module.register` loader thread the main thread's diagnostics hook is not
+// visible, so `initialize` accepts a MessagePort in `data.diagnosticsPort` and posts
+// diagnostics over it instead.
+test('initialize with a diagnosticsPort posts diagnostics over the port', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const posted = []
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Async' }
+      }
+    ],
+    diagnosticsPort: { postMessage: (diag) => posted.push(diag) }
+  })
+
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  async function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  async function nextLoad() {
+    return { format: 'module', source: readFileSync(esmPath, 'utf8') }
+  }
+  const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+
+  assert.equal(result.shortCircuit, true)
+  assert.deepEqual(posted, [{ url: `file://${esmPath}`, moduleName: 'esm-pkg', error: undefined }])
+})
+
+test('a diagnosticsPort that fails to post must not break module loading', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestEsm',
+        module: { name: 'esm-pkg', versionRange: '>=1', filePath: 'foo.js' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Async' }
+      }
+    ],
+    diagnosticsPort: { postMessage: () => { throw new Error('boom') } }
+  })
+
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  async function resolveFn() {
+    return { url: `file://${esmPath}` }
+  }
+  async function nextLoad() {
+    return { format: 'module', source: readFileSync(esmPath, 'utf8') }
+  }
+  const url = await esmLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = await esmLoaderRewriter.load(url.url, {}, nextLoad)
+
+  assert.equal(result.shortCircuit, true, 'the module must still be transformed')
+})
+
+// The main-thread half of the bridge: messages posted into the port returned by
+// createDiagnosticsPort must reach the hook set with setDiagnosticsHook.
+test('createDiagnosticsPort delivers posted diagnostics to the local hook', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const received = new Promise(resolve => esmLoaderRewriter.setDiagnosticsHook(resolve))
+  const port = esmLoaderRewriter.createDiagnosticsPort()
+  // The receiving side of the port is deliberately unref'd so it can't keep a real
+  // process alive; here that means holding the event loop open until delivery.
+  const keepAlive = setTimeout(() => {}, 5000)
+  try {
+    port.postMessage({ url: 'file:///pkg/index.js', moduleName: 'pkg' })
+    assert.deepEqual(await received, { url: 'file:///pkg/index.js', moduleName: 'pkg' })
+  } finally {
+    clearTimeout(keepAlive)
+    port.close()
+    esmLoaderRewriter.setDiagnosticsHook(undefined)
+  }
+})

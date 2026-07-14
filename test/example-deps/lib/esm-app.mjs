@@ -38,4 +38,9 @@ tracingChannel(scenario.channel).subscribe({
 })
 
 const result = await scenario.run()
-console.log(JSON.stringify({ result, events }))
+
+// Diagnostics posted from the `Module.register` loader thread are delivered
+// asynchronously; give the message queue a turn to drain before reporting.
+await new Promise(resolve => setImmediate(resolve))
+
+console.log(JSON.stringify({ result, events, diagnostics: globalThis.__diagnostics }))
