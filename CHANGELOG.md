@@ -1,6 +1,18 @@
 ## CHANGELOG
 
 
+## [0.12.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.11.0...tracing-hooks-v0.12.0) (2026-07-13)
+
+
+### Features
+
+* Update orchestrion to v0.18.0 ([#46](https://github.com/apm-js-collab/tracing-hooks/issues/46)) ([348c8b5](https://github.com/apm-js-collab/tracing-hooks/commit/348c8b5adf4dd86bb1d96cfd0adcafc5182cd618))
+
+
+### Bug Fixes
+
+* defer CJS transformation to the _compile patch in the async load hook ([#45](https://github.com/apm-js-collab/tracing-hooks/issues/45)) ([2ac752a](https://github.com/apm-js-collab/tracing-hooks/commit/2ac752a1ee90d83943709c888a599a0dc7693362))
+
 ## [0.11.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.1...tracing-hooks-v0.11.0) (2026-07-01)
 
 
