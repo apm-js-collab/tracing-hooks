@@ -2,7 +2,9 @@
 const { create } = require('@apm-js-collab/code-transformer')
 const Module = require('node:module')
 const parse = require('module-details-from-path')
+const { pathToFileURL } = require('node:url')
 const getPackageVersion = require('./lib/get-package-version')
+const { emitDiagnostics } = require('./lib/diagnostics')
 const debug = require('debug')('@apm-js-collab/tracing-hooks:module-patch')
 
 class ModulePatch {
@@ -35,11 +37,13 @@ class ModulePatch {
             // match a CJS target.
             const transformedCode = transformer.transform(content, 'cjs')
             args[0] = transformedCode?.code
+            emitDiagnostics({ url: pathToFileURL(filename).href, moduleName: transformer.moduleName })
             if (process.env.TRACING_DUMP) {
               dump(args[0], filename)
             }
           } catch (error) {
             debug('Error transforming module %s: %o', filename, error)
+            emitDiagnostics({ url: pathToFileURL(filename).href, moduleName: transformer.moduleName, error })
           } finally {
             transformer.free()
           }

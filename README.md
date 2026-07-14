@@ -103,8 +103,7 @@ a base directory of `/tmp/dump/`, then the patched code will be written to
 ### Diagnostics Hook
 
 A diagnostics hook can be set which is called every time a module is transformed 
-or transformation fails. This hook will only work with the synchronous 
-`registerHooks` because the older `register` runs in a different thread.
+or transformation fails.
 
 ```js
 import { setDiagnosticsHook } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
@@ -117,3 +116,26 @@ setDiagnosticsHook(({ url, moduleName, error }) => {
   }
 })
 ```
+
+With the synchronous `registerHooks` (and the `_compile` patch) this is all that
+is needed. The older async `register` runs its hooks on a separate thread where
+the hook set above is not visible, so pass a MessagePort created with
+`createDiagnosticsPort()` for the loader thread to post its diagnostics back:
+
+```js
+import { setDiagnosticsHook, createDiagnosticsPort } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
+
+setDiagnosticsHook(({ url, moduleName, error }) => { /* ... */ })
+
+const diagnosticsPort = createDiagnosticsPort()
+Module.register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
+  data: { instrumentations, diagnosticsPort },
+  transferList: [diagnosticsPort]
+})
+```
+
+On this path, diagnostics for ES modules are posted from the loader thread and
+therefore arrive asynchronously, some time after the module was transformed;
+diagnostics for CommonJS modules come from the `_compile` patch and are emitted
+synchronously as before. The port does not keep the process alive, so
+diagnostics still in flight when the process exits are dropped.

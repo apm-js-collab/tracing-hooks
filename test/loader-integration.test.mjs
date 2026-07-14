@@ -61,6 +61,32 @@ test('async hooks without the _compile patch do not instrument CJS', async () =>
   assert.equal(result, 'middleware:esm-require-dep-linked', 'and the module itself still works')
 })
 
+// Diagnostics on the async path: the loader thread cannot see a hook set with
+// `setDiagnosticsHook` on the main thread, so it posts transform events back over the
+// MessagePort from `createDiagnosticsPort()`; the `_compile` patch emits directly on
+// the main thread. Both must land in the one hook the app registered.
+test('async hooks report diagnostics from both threads', async (t) => {
+  await t.test('ESM transform on the loader thread arrives over the port', async () => {
+    const { events, diagnostics } = await runApp('register-async-diagnostics.mjs', 'esm-app.mjs', 'esm')
+
+    assert.deepEqual(events, ['start', 'end'], 'instrumentation must still work with diagnostics wired up')
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0].moduleName, 'esm-pkg')
+    assert.match(diagnostics[0].url, /esm-pkg\/foo\.js$/)
+    assert.equal(diagnostics[0].error, undefined)
+  })
+
+  await t.test('CJS transform via the _compile patch emits on the main thread', async () => {
+    const { events, diagnostics } = await runApp('register-async-diagnostics.mjs', 'esm-app.mjs', 'cjs-require-esm')
+
+    assert.deepEqual(events, ['start', 'end'])
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0].moduleName, 'cjs-entry-lib')
+    assert.match(diagnostics[0].url, /cjs-entry-lib\/lib\/application\.js$/)
+    assert.equal(diagnostics[0].error, undefined)
+  })
+})
+
 // The sync hooks are the only path that transforms CommonJS in the loader itself.
 test('sync hooks instrument a CJS package whose require chain reaches ESM', { skip: !stableSyncHooks }, async () => {
   const { result, events } = await runApp('register-sync.mjs', 'esm-app.mjs', 'cjs-require-esm')

@@ -3,17 +3,35 @@ import createDebug from 'debug'
 import { create } from '@apm-js-collab/code-transformer'
 import parse from 'module-details-from-path'
 import { fileURLToPath } from 'node:url'
+import { MessageChannel } from 'node:worker_threads'
 import getPackageVersion from './lib/get-package-version.js'
+import { setDiagnosticsHook, emitDiagnostics } from './lib/diagnostics.js'
 import { readFileSync } from 'node:fs'
 const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
 let instrumentator = null
 
-let diagnosticsHook
+export { setDiagnosticsHook }
 
-export function setDiagnosticsHook(hook) {
-  diagnosticsHook = hook
+// On the main thread diagnostics go straight to the hook set via
+// `setDiagnosticsHook`. When these hooks run on the `Module.register` loader
+// thread, `initialize` swaps this for a function that posts back over the
+// MessagePort supplied in `data.diagnosticsPort`.
+let emit = emitDiagnostics
+
+/**
+ * Creates a MessagePort that forwards diagnostics posted by the `Module.register`
+ * loader thread to the hook set via `setDiagnosticsHook` on this thread. Pass the
+ * returned port to `Module.register` in both `data.diagnosticsPort` and
+ * `transferList`.
+ */
+export function createDiagnosticsPort() {
+  const { port1, port2 } = new MessageChannel()
+  port1.on('message', emitDiagnostics)
+  // The diagnostics channel must not keep the process alive.
+  port1.unref()
+  return port2
 }
 
 export async function initialize(data = {}) {
@@ -24,6 +42,23 @@ export function initializeSync(data = {}) {
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))
   transformers = new Map()
+  emit = data?.diagnosticsPort ? createPortEmitter(data.diagnosticsPort) : emitDiagnostics
+}
+
+function createPortEmitter(port) {
+  return (diag) => {
+    try {
+      // Structured clone reliably carries Error instances but not arbitrary thrown
+      // values, so flatten anything else to an Error rather than let postMessage
+      // throw inside the load path.
+      const error = diag.error === undefined || diag.error instanceof Error
+        ? diag.error
+        : new Error(String(diag.error))
+      port.postMessage({ ...diag, error })
+    } catch (err) {
+      debug('failed to post diagnostics for %s: %o', diag.url, err)
+    }
+  }
 }
 
 export async function resolve(specifier, context, nextResolve) {
@@ -107,14 +142,10 @@ export function loadResult(url, result) {
       const transformedCode = transformer.transform(source, moduleType)
       result.source = transformedCode?.code
       result.shortCircuit = true
-      if (diagnosticsHook) {
-        diagnosticsHook({ url, moduleName: transformer.moduleName })
-      }
+      emit({ url, moduleName: transformer.moduleName })
     } catch (err) {
       debug('Error transforming module %s: %o', url, err)
-      if (diagnosticsHook) {
-        diagnosticsHook({ url, moduleName: transformer.moduleName, error: err })
-      }
+      emit({ url, moduleName: transformer.moduleName, error: err })
     } finally {
       transformer.free()
     }

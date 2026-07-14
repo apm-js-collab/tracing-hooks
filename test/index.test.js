@@ -5,7 +5,9 @@ const assert = require('node:assert')
 const Module = require('node:module')
 const Snap = require('@matteo.collina/snap')
 const ModulePatch = require('../index.js')
+const { setDiagnosticsHook } = require('../lib/diagnostics')
 const path = require('node:path')
+const { pathToFileURL } = require('node:url')
 const { readFileSync, mkdirSync, rmSync, statSync } = require('node:fs')
 
 test.beforeEach((t) => {
@@ -78,6 +80,40 @@ test('should not rewrite code for an unmatch patch', async (t) => {
   const rewrittenCode = testModule.exports.toString()
   const snapshot = await snap(rewrittenCode)
   assert.deepEqual(rewrittenCode, snapshot)
+})
+
+// The `_compile` patch is what transforms CommonJS on the async-hooks path, so it has
+// to emit diagnostics too — the loader thread never sees these modules.
+test('should emit diagnostics when a module is transformed', (t) => {
+  const { modulePath, modulePatch } = t.ctx
+  const diagnostics = []
+  setDiagnosticsHook(diag => diagnostics.push(diag))
+  t.after(() => setDiagnosticsHook(undefined))
+
+  modulePatch.patch()
+  const resolvedPath = Module._resolveFilename(modulePath, null, false)
+  const data = readFileSync(resolvedPath, 'utf8')
+  new Module(resolvedPath)._compile(data, resolvedPath)
+
+  assert.deepEqual(diagnostics, [{ url: pathToFileURL(resolvedPath).href, moduleName: 'pkg-1' }])
+})
+
+test('should emit diagnostics with the error when transformation fails', (t) => {
+  const { modulePath, modulePatch } = t.ctx
+  const diagnostics = []
+  setDiagnosticsHook(diag => diagnostics.push(diag))
+  t.after(() => setDiagnosticsHook(undefined))
+
+  modulePatch.patch()
+  const resolvedPath = Module._resolveFilename(modulePath, null, false)
+  // Unparseable source makes the transformer throw; `_compile` then also throws on it,
+  // but the failure diagnostic must already have been emitted by then.
+  assert.throws(() => new Module(resolvedPath)._compile('const {', resolvedPath))
+
+  assert.equal(diagnostics.length, 1)
+  assert.equal(diagnostics[0].url, pathToFileURL(resolvedPath).href)
+  assert.equal(diagnostics[0].moduleName, 'pkg-1')
+  assert.ok(diagnostics[0].error instanceof Error)
 })
 
 test('should not rewrite code if a function query does not exist in file', async (t) => {
