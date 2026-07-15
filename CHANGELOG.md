@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.13.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.12.0...tracing-hooks-v0.13.0) (2026-07-14)
+
+
+### Features
+
+* Extend diagnostics hook to async and require ([#49](https://github.com/apm-js-collab/tracing-hooks/issues/49)) ([8351727](https://github.com/apm-js-collab/tracing-hooks/commit/8351727af96274d5cc1ccba8ace65fa9b66f99f5))
+
 ## [0.12.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.11.0...tracing-hooks-v0.12.0) (2026-07-13)
 
 
