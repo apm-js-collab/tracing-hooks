@@ -1,43 +1,25 @@
 'use strict'
-import createDebug from 'debug'
-import { create } from '@apm-js-collab/code-transformer'
-import parse from 'module-details-from-path'
-import { fileURLToPath } from 'node:url'
-import { MessageChannel } from 'node:worker_threads'
-import getPackageVersion from './lib/get-package-version.js'
-import { setDiagnosticsHook, emitDiagnostics } from './lib/diagnostics.js'
-import { readFileSync } from 'node:fs'
+const createDebug = require('debug')
+const { create } = require('@apm-js-collab/code-transformer')
+const parse = require('module-details-from-path')
+const { fileURLToPath } = require('node:url')
+const { MessageChannel } = require('node:worker_threads')
+const { readFileSync } = require('node:fs')
+const getPackageVersion = require('./lib/get-package-version.js')
+const { setDiagnosticsHook, emitDiagnostics } = require('./lib/diagnostics.js')
+
 const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
 let instrumentator = null
 
-export { setDiagnosticsHook }
-
 // On the main thread diagnostics go straight to the hook set via
 // `setDiagnosticsHook`. When these hooks run on the `Module.register` loader
-// thread, `initialize` swaps this for a function that posts back over the
+// thread, `initializeSync` swaps this for a function that posts back over the
 // MessagePort supplied in `data.diagnosticsPort`.
 let emit = emitDiagnostics
 
-/**
- * Creates a MessagePort that forwards diagnostics posted by the `Module.register`
- * loader thread to the hook set via `setDiagnosticsHook` on this thread. Pass the
- * returned port to `Module.register` in both `data.diagnosticsPort` and
- * `transferList`.
- */
-export function createDiagnosticsPort() {
-  const { port1, port2 } = new MessageChannel()
-  port1.on('message', emitDiagnostics)
-  // The diagnostics channel must not keep the process alive.
-  port1.unref()
-  return port2
-}
-
-export async function initialize(data = {}) {
-  return initializeSync(data)
-}
-export function initializeSync(data = {}) {
+function initializeSync(data = {}) {
   const instrumentations = data?.instrumentations || []
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))
@@ -61,9 +43,20 @@ function createPortEmitter(port) {
   }
 }
 
-export async function resolve(specifier, context, nextResolve) {
-  return resolveFromURL(await nextResolve(specifier, context))
+/**
+ * Creates a MessagePort that forwards diagnostics posted by the `Module.register`
+ * loader thread to the hook set via `setDiagnosticsHook` on this thread. Pass the
+ * returned port to `Module.register` in both `data.diagnosticsPort` and
+ * `transferList`.
+ */
+function createDiagnosticsPort() {
+  const { port1, port2 } = new MessageChannel()
+  port1.on('message', emitDiagnostics)
+  // The diagnostics channel must not keep the process alive.
+  port1.unref()
+  return port2
 }
+
 function resolveFromURL(url) {
   const resolvedModule = parse(url.url)
   if (resolvedModule && packages.has(resolvedModule.name)) {
@@ -76,46 +69,33 @@ function resolveFromURL(url) {
   }
   return url
 }
-export function resolveSync(specifier, context, nextResolve) {
+
+function resolveSync(specifier, context, nextResolve) {
   return resolveFromURL(nextResolve(specifier, context))
 }
 
-export async function load(url, context, nextLoad) {
-  const result = await nextLoad(url, context)
-
-  if (transformers.has(url) === false) {
-    return result
-  }
-
-  if (result.format === 'commonjs') {
-    // CommonJS is always left to the `Module.prototype._compile` patch
-    // (`ModulePatch`), which these hooks are only ever registered alongside.
-    // Returning `source` for a CommonJS module instead makes Node evaluate it on the
-    // synchronous require(esm) bridge, which throws ERR_VM_MODULE_LINK_FAILURE on
-    // Node < 24.12 when the module's top-level require() chain reaches an ES module
-    // (https://github.com/nodejs/node/issues/59666). Handing the module back exactly
-    // as Node produced it (`source` is null) sends it down the ordinary CommonJS
-    // loader, where `_compile` transforms it.
-    //
-    // `resolve` has already put a transformer in the map for this URL and nothing
-    // downstream will free it, so do that here.
-    debug('deferring commonjs module to the _compile patch %s', url)
-    const transformer = transformers.get(url)
-    transformer.free()
-    transformers.delete(url)
-    return result
-  }
-
-  return loadResult(url, result)
+function hasTransformer(url) {
+  return transformers.has(url)
 }
 
-// Unlike the async `load` hook above, this one must transform CommonJS: the sync hooks
+// The async `load` hook in hook.mjs hands CommonJS back untransformed so Node loads it
+// through the ordinary CJS loader, where the `_compile` patch transforms it instead.
+// `resolve` has already put a transformer in the map for this URL and nothing
+// downstream will free it, so this frees it on that deferral path.
+function deferCommonJSTransform(url) {
+  debug('deferring commonjs module to the _compile patch %s', url)
+  const transformer = transformers.get(url)
+  transformer.free()
+  transformers.delete(url)
+}
+
+// Unlike the async `load` hook in hook.mjs, this one must transform CommonJS: the sync hooks
 // are never paired with a `_compile` patch, so they are the only thing that can, and
 // they don't evaluate CommonJS on the require(esm) bridge.
-export function loadSync(url, context, nextLoad) {
+function loadSync(url, context, nextLoad) {
   const result = nextLoad(url, context)
 
-  if (transformers.has(url) === false) {
+  if (hasTransformer(url) === false) {
     return result
   }
 
@@ -127,7 +107,7 @@ export function loadSync(url, context, nextLoad) {
   return loadResult(url, result)
 }
 
-export function loadResult(url, result) {
+function loadResult(url, result) {
   const code = result.source
   if (code) {
     const transformer = transformers.get(url)
@@ -152,4 +132,17 @@ export function loadResult(url, result) {
   }
 
   return result
+}
+
+module.exports = {
+  initializeSync,
+  resolveSync,
+  loadSync,
+  resolveFromURL,
+  loadResult,
+  createPortEmitter,
+  createDiagnosticsPort,
+  setDiagnosticsHook,
+  hasTransformer,
+  deferCommonJSTransform
 }
