@@ -9,6 +9,16 @@
     "url": "git+https://github.com/apm-js-collab/tracing-hooks.git"
   },
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./hook.mjs": "./hook.mjs",
+    "./hook-sync": {
+      "require": "./hook-sync.cjs",
+      "import": "./hook-sync.mjs"
+    },
+    "./hook-sync.mjs": "./hook-sync.mjs"
+  },
   "scripts": {
     "test": "c8 borp 'test/**/*.test.{js,mjs}'",
     "test:update-snapshots": "SNAP_UPDATE=1 npm test"
@@ -17,6 +27,8 @@
     "index.js",
     "hook.mjs",
     "hook-sync.mjs",
+    "hook-sync.cjs",
+    "hook-core.js",
     "lib"
   ],
   "dependencies": {
