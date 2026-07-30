@@ -59,15 +59,19 @@ if (typeof Module.registerHooks === 'function' && stableSyncHooks) {
     data: { instrumentations }
   });
 
-  // ALSO patch `Module.prototype._compile` for the CJS side: when
-  // an ESM file `import`s a CJS package, Node loads the package's
-  // entry through the ESM bridge but resolves the package's
-  // INTERNAL `require()` calls through the CJS machinery.
-  // Those internal requires never reach the ESM resolve hook, so
-  // without this patch the file we actually want to instrument is
-  // loaded untransformed.
-  // This isn't necessary in the registerHooks case, because Node
-  // applies those hooks to all CJS and ESM modules.
+  // ALSO patch `Module.prototype._compile`. This is REQUIRED, not an
+  // optimisation: on this path CommonJS is instrumented entirely by
+  // the patch, never by the async `load` hook.
+  // Two reasons. When an ESM file `import`s a CJS package, Node
+  // resolves the package's INTERNAL `require()` calls through the CJS
+  // machinery, so they never reach the ESM resolve hook. And handing
+  // `source` back for a CommonJS module from the async `load` hook
+  // makes Node evaluate it on the synchronous require(esm) bridge,
+  // which throws ERR_VM_MODULE_LINK_FAILURE on Node < 24.12 whenever
+  // that module's top-level require() chain reaches an ES module
+  // (https://github.com/nodejs/node/issues/59666).
+  // Neither applies in the registerHooks case, because Node applies
+  // those hooks to all CJS and ESM modules.
   new ModulePatch({ instrumentations }).patch();
 } else {
   throw new Error('No available API to apply module load hooks')
@@ -100,8 +104,7 @@ a base directory of `/tmp/dump/`, then the patched code will be written to
 ### Diagnostics Hook
 
 A diagnostics hook can be set which is called every time a module is transformed 
-or transformation fails. This hook will only work with the synchronous 
-`registerHooks` because the older `register` runs in a different thread.
+or transformation fails.
 
 ```js
 import { setDiagnosticsHook } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
@@ -114,3 +117,26 @@ setDiagnosticsHook(({ url, moduleName, error }) => {
   }
 })
 ```
+
+With the synchronous `registerHooks` (and the `_compile` patch) this is all that
+is needed. The older async `register` runs its hooks on a separate thread where
+the hook set above is not visible, so pass a MessagePort created with
+`createDiagnosticsPort()` for the loader thread to post its diagnostics back:
+
+```js
+import { setDiagnosticsHook, createDiagnosticsPort } from '@apm-js-collab/tracing-hooks/hook-sync.mjs'
+
+setDiagnosticsHook(({ url, moduleName, error }) => { /* ... */ })
+
+const diagnosticsPort = createDiagnosticsPort()
+Module.register('@apm-js-collab/tracing-hooks/hook.mjs', import.meta.url, {
+  data: { instrumentations, diagnosticsPort },
+  transferList: [diagnosticsPort]
+})
+```
+
+On this path, diagnostics for ES modules are posted from the loader thread and
+therefore arrive asynchronously, some time after the module was transformed;
+diagnostics for CommonJS modules come from the `_compile` patch and are emitted
+synchronously as before. The port does not keep the process alive, so
+diagnostics still in flight when the process exits are dropped.

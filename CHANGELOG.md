@@ -1,5 +1,46 @@
 ## CHANGELOG
 
+
+## [0.13.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.12.0...tracing-hooks-v0.13.0) (2026-07-14)
+
+
+### Features
+
+* Extend diagnostics hook to async and require ([#49](https://github.com/apm-js-collab/tracing-hooks/issues/49)) ([8351727](https://github.com/apm-js-collab/tracing-hooks/commit/8351727af96274d5cc1ccba8ace65fa9b66f99f5))
+
+## [0.12.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.11.0...tracing-hooks-v0.12.0) (2026-07-13)
+
+
+### Features
+
+* Update orchestrion to v0.18.0 ([#46](https://github.com/apm-js-collab/tracing-hooks/issues/46)) ([348c8b5](https://github.com/apm-js-collab/tracing-hooks/commit/348c8b5adf4dd86bb1d96cfd0adcafc5182cd618))
+
+
+### Bug Fixes
+
+* defer CJS transformation to the _compile patch in the async load hook ([#45](https://github.com/apm-js-collab/tracing-hooks/issues/45)) ([2ac752a](https://github.com/apm-js-collab/tracing-hooks/commit/2ac752a1ee90d83943709c888a599a0dc7693362))
+
+## [0.11.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.1...tracing-hooks-v0.11.0) (2026-07-01)
+
+
+### Features
+
+* Update orchestrion-js to v0.16.0 ([#43](https://github.com/apm-js-collab/tracing-hooks/issues/43)) ([bb3591a](https://github.com/apm-js-collab/tracing-hooks/commit/bb3591aabdb1d1aa2422e790efb614914d076c54))
+
+## [0.10.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.10.0...tracing-hooks-v0.10.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* decode Uint8Array module source from synchronous hooks ([#41](https://github.com/apm-js-collab/tracing-hooks/issues/41)) ([cc62e2b](https://github.com/apm-js-collab/tracing-hooks/commit/cc62e2bbcf012bcb8301fd515c034df459824474))
+
+## [0.10.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.1...tracing-hooks-v0.10.0) (2026-06-18)
+
+
+### Features
+
+* Release 0.10.0 ([#37](https://github.com/apm-js-collab/tracing-hooks/issues/37)) ([7fd56d0](https://github.com/apm-js-collab/tracing-hooks/commit/7fd56d0aad21138439dc2fe64038e10ebb801a59))
+
 ## [0.9.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.9.0...tracing-hooks-v0.9.1) (2026-05-29)
 
 

@@ -2,5 +2,6 @@ export {
   initializeSync as initialize,
   loadSync as load,
   resolveSync as resolve,
-  setDiagnosticsHook
+  setDiagnosticsHook,
+  createDiagnosticsPort
 } from './hook.mjs'

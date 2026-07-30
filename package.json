@@ -1,6 +1,6 @@
 {
   "name": "@apm-js-collab/tracing-hooks",
-  "version": "0.9.1",
+  "version": "0.13.0",
   "description": "CJS and ESM hooks for orchestrion",
   "license": "Apache-2.0",
   "type": "commonjs",
@@ -20,7 +20,7 @@
     "lib"
   ],
   "dependencies": {
-    "@apm-js-collab/code-transformer": "^0.15.0",
+    "@apm-js-collab/code-transformer": "^0.18.0",
     "debug": "^4.4.1",
     "module-details-from-path": "^1.0.4"
   },
