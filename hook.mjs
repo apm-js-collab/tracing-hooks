@@ -1,12 +1,15 @@
 'use strict'
-import createDebug from 'debug'
-import { create } from '@apm-js-collab/code-transformer'
-import parse from 'module-details-from-path'
+
+import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { MessageChannel } from 'node:worker_threads'
-import getPackageVersion from './lib/get-package-version.js'
+import { create as defaultCreate } from '@apm-js-collab/code-transformer'
+import createDebug from 'debug'
+import parse from 'module-details-from-path'
 import { setDiagnosticsHook, emitDiagnostics } from './lib/diagnostics.js'
-import { readFileSync } from 'node:fs'
+import getPackageVersion from './lib/get-package-version.js'
+
 const debug = createDebug('@apm-js-collab/tracing-hooks:esm-hook')
 let transformers = null
 let packages = null
@@ -34,10 +37,10 @@ export function createDiagnosticsPort() {
   return port2
 }
 
-export async function initialize(data = {}) {
-  return initializeSync(data)
+export async function initialize(data = {}, { create = defaultCreate } = {}) {
+  return initializeSync(data, { create })
 }
-export function initializeSync(data = {}) {
+export function initializeSync(data = {}, { create = defaultCreate } = {}) {
   const instrumentations = data?.instrumentations || []
   instrumentator = create(instrumentations)
   packages = new Set(instrumentations.map(i => i.module.name))

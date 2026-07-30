@@ -1,12 +1,13 @@
 # Tracing Hooks
 
-This repository contains a ESM loader for injecting tracing channel hooks into Node.js modules. It also has a patch for Module to be used to patch CJS modules.
+This repository contains a ESM loader for injecting tracing channel hooks into
+Node.js modules. It also has a patch for Module to be used to patch CJS modules.
 
 ## Usage
 
 Note: the module loading hooks API in Node.js has changed as of
 v26. To support all active Node.js versions with
-forward-compatibility, create a combined loader as an ESM module.
+forward-compatibility, create a combined loader as an ES Module (ESM).
 
 This can be done for any CommonJS _or_ ES Module application, but
 the loader itself must use ESM.

@@ -1,5 +1,5 @@
 'use strict'
-const { create } = require('@apm-js-collab/code-transformer')
+const { create: defaultCreate } = require('@apm-js-collab/code-transformer')
 const Module = require('node:module')
 const parse = require('module-details-from-path')
 const { pathToFileURL } = require('node:url')
@@ -8,7 +8,7 @@ const { emitDiagnostics } = require('./lib/diagnostics')
 const debug = require('debug')('@apm-js-collab/tracing-hooks:module-patch')
 
 class ModulePatch {
-  constructor({ instrumentations = [] } = {}) {
+  constructor({ instrumentations = [], create = defaultCreate } = {}) {
     this.packages = new Set(instrumentations.map(i => i.module.name))
     this.instrumentator = create(instrumentations)
     this.compile = Module.prototype._compile
