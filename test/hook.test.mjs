@@ -229,7 +229,7 @@ test('format=module emits ESM-shaped diagnostics_channel import', async (t) => {
     'ESM target should not be injected with `require("diagnostics_channel")`')
 })
 
-test('unrecognized format falls through to "unknown" without throwing', async (t) => {
+test('unrecognized format does not throw', async (t) => {
   const { esmLoaderRewriter } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
   async function resolveFn() {
@@ -237,8 +237,9 @@ test('unrecognized format falls through to "unknown" without throwing', async (t
   }
   async function nextLoad() {
     return {
-      // Format the loader doesn't map to esm/cjs — Node may report 'json',
-      // 'wasm', 'builtin', or any future addition. None should crash the hook.
+      // Format the loader doesn't map to esm/cjs. Node may report 'json',
+      // 'wasm', 'builtin', or any future addition. None should crash the
+      // hook; the module type comes from the source instead.
       format: 'json',
       source: readFileSync(cjsPath, 'utf8')
     }

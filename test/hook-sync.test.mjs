@@ -3,7 +3,9 @@ import test from 'node:test'
 import assert from 'node:assert'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import Snap from '@matteo.collina/snap'
+import { modules, instrumentations } from './module-types/instrumentations.mjs'
 
 test.beforeEach(async (t) => {
   const syncLoaderRewriter = await import('../hook-sync.mjs')
@@ -258,6 +260,37 @@ test('format=commonjs emits CJS-shaped diagnostics_channel require', async (t) =
     'CJS target should be injected with `require("diagnostics_channel")`')
   assert.doesNotMatch(result.source, /^import .* from ["']diagnostics_channel["']/m,
     'CJS target should not be injected with `import ... from "diagnostics_channel"`')
+})
+
+// `format` is not always supplied. Deno's sync hooks report none at all, for
+// ESM and CommonJS alike, so the injection style has to come from the module
+// itself: the file extension, then the nearest package.json `"type"`, then the
+// source. Both wrong guesses throw on load, `ReferenceError: require is not
+// defined` in an ES module and `ReferenceError: module is not defined` in a
+// CommonJS one (issue #53).
+test('unlabeled format picks the injection style from the module', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+
+  // The case table lives with the fixture, and `test/module-types.test.mjs`
+  // runs the loadable half of it end to end under both Node and Deno.
+  syncLoaderRewriter.initialize({ instrumentations })
+
+  const esmImport = /^import .* from ["']diagnostics_channel["']/m
+  const cjsRequire = /=\s*require\(["']diagnostics_channel["']\)/
+
+  for (const { name, filePath, type, why } of modules) {
+    const file = path.join(import.meta.dirname, 'module-types/node_modules', name, filePath)
+    const url = syncLoaderRewriter.resolve(name, {}, () => ({ url: pathToFileURL(file).href }))
+    // No `format` in the load result, which is what Deno's hooks give.
+    const result = syncLoaderRewriter.load(url.url, {},
+      () => ({ source: readFileSync(file, 'utf8') }))
+
+    assert.equal(result.shortCircuit, true, `${name} should be transformed`)
+    assert.match(result.source, type === 'esm' ? esmImport : cjsRequire,
+      `${name} is ${type} by ${why}`)
+    assert.doesNotMatch(result.source, type === 'esm' ? cjsRequire : esmImport,
+      `${name} is ${type} by ${why}`)
+  }
 })
 
 test('should rewrite code and call diagnostics hook', async (t) => {

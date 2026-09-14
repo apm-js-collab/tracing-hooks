@@ -3,6 +3,7 @@ import createDebug from 'debug'
 import { create } from '@apm-js-collab/code-transformer'
 import parse from 'module-details-from-path'
 import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { MessageChannel } from 'node:worker_threads'
 import getPackageVersion from './lib/get-package-version.js'
 import { setDiagnosticsHook, emitDiagnostics } from './lib/diagnostics.js'
@@ -132,13 +133,13 @@ export function loadResult(url, result) {
   if (code) {
     const transformer = transformers.get(url)
     try {
-      const moduleType = result.format === 'module' ? 'esm' :
-        result.format === 'commonjs' ? 'cjs' : 'unknown'
       // Node's synchronous hooks (`Module.registerHooks`) deliver `source` as a plain `Uint8Array`,
       // whereas the async loader delivers a `Buffer`. `Uint8Array.prototype.toString('utf8')` ignores
       // the encoding and returns comma-joined byte values instead of the decoded text, so decode via
       // `Buffer` for anything that isn't already a string.
       const source = typeof code === 'string' ? code : Buffer.from(code).toString('utf8')
+      const moduleType = result.format === 'module' ? 'esm' :
+        result.format === 'commonjs' ? 'cjs' : unlabeledModuleType(url, source)
       const transformedCode = transformer.transform(source, moduleType)
       result.source = transformedCode?.code
       result.shortCircuit = true
@@ -152,4 +153,56 @@ export function loadResult(url, result) {
   }
 
   return result
+}
+
+// Top level `import`/`export`. A dynamic `import()` call is not included,
+// because CommonJS can use it too.
+const esmSyntax = /(^|[\n;])\s*(import\s+|import\s*[{*'"]|export\b)/
+
+// Decide how to transform a module that the host's hooks did not label with a
+// `format`. Deno's sync hooks label nothing, and Deno loads CommonJS as well
+// as ESM, so the runtime alone does not answer the question. Guessing wrong
+// breaks the module: `require()` in an ES module throws `ReferenceError:
+// require is not defined`, and `import` in a CommonJS module is a syntax
+// error.
+function unlabeledModuleType(url, source) {
+  return declaredModuleType(url) ?? (esmSyntax.test(source) ? 'esm' : 'cjs')
+}
+
+// The type the file layout declares, by the rules Node and Deno share: the
+// extension wins, then the `"type"` of the nearest enclosing package.json.
+// Returns undefined when neither settles it, which leaves the source to say.
+function declaredModuleType(url) {
+  let file
+  try {
+    file = fileURLToPath(url)
+  } catch {
+    // Not a file: URL. There is nothing on disk to read.
+    return undefined
+  }
+  // `.mts` and `.cts` pin the type the same way `.mjs` and `.cjs` do. The
+  // source is a poor substitute for them: a `.cts` file may carry a top level
+  // `import type`, which strips away at runtime but reads as ESM here.
+  if (file.endsWith('.mjs') || file.endsWith('.mts')) return 'esm'
+  if (file.endsWith('.cjs') || file.endsWith('.cts')) return 'cjs'
+  const type = nearestPackageType(dirname(file))
+  return type === 'module' ? 'esm' : type === 'commonjs' ? 'cjs' : undefined
+}
+
+const packageTypes = new Map()
+
+// The `"type"` of the nearest package.json at or above `dir`. A package.json
+// that declares no `"type"` still ends the walk, exactly as it does for the
+// runtime, and yields undefined.
+function nearestPackageType(dir) {
+  if (packageTypes.has(dir)) return packageTypes.get(dir)
+  let type
+  try {
+    type = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).type
+  } catch {
+    const parent = dirname(dir)
+    if (parent !== dir) type = nearestPackageType(parent)
+  }
+  packageTypes.set(dir, type)
+  return type
 }
