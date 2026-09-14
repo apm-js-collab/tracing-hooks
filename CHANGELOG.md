@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.13.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.13.0...tracing-hooks-v0.13.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* infer unspecifed module type more correctly ([#54](https://github.com/apm-js-collab/tracing-hooks/issues/54)) ([397f992](https://github.com/apm-js-collab/tracing-hooks/commit/397f992c706ed6c2c277d2756a748f7923fee511))
+
 ## [0.13.0](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.12.0...tracing-hooks-v0.13.0) (2026-07-14)
 
 
