@@ -132,6 +132,14 @@ export function loadResult(url, result) {
   const code = result.source
   if (code) {
     const transformer = transformers.get(url)
+    if (isJSON(url, result.format)) {
+      // `resolve` matched the path, but there is nothing here to
+      // instrument, and nothing downstream will free the transformer.
+      debug('skipping json module %s', url)
+      transformer.free()
+      transformers.delete(url)
+      return result
+    }
     try {
       // Node's synchronous hooks (`Module.registerHooks`) deliver `source` as a plain `Uint8Array`,
       // whereas the async loader delivers a `Buffer`. `Uint8Array.prototype.toString('utf8')` ignores
@@ -153,6 +161,20 @@ export function loadResult(url, result) {
   }
 
   return result
+}
+
+// A `.json` path, with any query or fragment after it.
+const jsonPath = /\.json([?#]|$)/
+
+// JSON is data, so no module type fits it and no instrumentation can
+// match inside it. Parsing it as JavaScript only reports a false error to
+// the diagnostics hook. Node labels it `format: 'json'`, but Deno's sync
+// hooks label nothing at all, so only the path settles it there (issue
+// #53). The path is enough on its own: an `import` needs
+// `with { type: 'json' }` to load a `.json` file, and `require()` of one
+// always parses it as data.
+function isJSON(url, format) {
+  return format === 'json' || jsonPath.test(url)
 }
 
 // Top level `import`/`export`. A dynamic `import()` call is not included,

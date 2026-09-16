@@ -237,15 +237,53 @@ test('unrecognized format does not throw', async (t) => {
   }
   async function nextLoad() {
     return {
-      // Format the loader doesn't map to esm/cjs. Node may report 'json',
-      // 'wasm', 'builtin', or any future addition. None should crash the
-      // hook; the module type comes from the source instead.
-      format: 'json',
+      // Format the loader doesn't map to esm/cjs. Node may report 'wasm',
+      // 'builtin', or any future addition. None should crash the hook; the
+      // module type comes from the source instead. Not 'json': the hooks
+      // skip that one, which the next test covers.
+      format: 'wasm',
       source: readFileSync(cjsPath, 'utf8')
     }
   }
   const url = await esmLoaderRewriter.resolve('pkg-1', {}, resolveFn)
   await assert.doesNotReject(() => esmLoaderRewriter.load(url.url, {}, nextLoad))
+})
+
+// JSON is data. When an instrumentation's `filePath` matcher reaches a
+// `.json` file, the hooks have to hand it back untouched. There is nothing
+// in it to instrument, and parsing it as JavaScript reports a transform
+// error that tells the consumer nothing. The sync hooks carry the same
+// test, with the unlabeled shape Deno reports (issue #53).
+test('json modules are handed back untouched', async (t) => {
+  const { esmLoaderRewriter } = t.ctx
+  const jsonPath = path.join(import.meta.dirname,
+    './example-deps/lib/node_modules/pkg-1/data.json')
+  const source = readFileSync(jsonPath, 'utf8')
+
+  const diagnostics = []
+  esmLoaderRewriter.setDiagnosticsHook(d => diagnostics.push(d))
+  t.after(() => esmLoaderRewriter.setDiagnosticsHook(undefined))
+
+  // A matcher that reaches the JSON file. Without the skip, the transformer
+  // it produces parses the file and reports a syntax error.
+  esmLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestJson',
+        module: { name: 'pkg-1', versionRange: '>=1', filePath: 'data.json' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Sync' }
+      }
+    ]
+  })
+
+  const url = await esmLoaderRewriter.resolve('pkg-1', {},
+    async () => ({ url: `file://${jsonPath}` }))
+  const result = await esmLoaderRewriter.load(url.url, {},
+    async () => ({ format: 'json', source }))
+
+  assert.equal(result.source, source, 'source must be unchanged')
+  assert.ok(!result.shortCircuit, 'must not short circuit')
+  assert.deepEqual(diagnostics, [], 'json must report no transform event')
 })
 
 // On the `Module.register` loader thread the main thread's diagnostics hook is not
