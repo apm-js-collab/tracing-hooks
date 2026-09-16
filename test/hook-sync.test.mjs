@@ -293,6 +293,46 @@ test('unlabeled format picks the injection style from the module', async (t) => 
   }
 })
 
+// JSON is data. When an instrumentation's `filePath` matcher reaches a
+// `.json` file, the hooks have to hand it back untouched. There is nothing
+// in it to instrument, and parsing it as JavaScript reports a transform
+// error that tells the consumer nothing. Node labels these `format: 'json'`
+// and Deno labels nothing at all, so both shapes must skip (issue #53).
+test('json modules are handed back untouched', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+  const jsonPath = path.join(import.meta.dirname,
+    './example-deps/lib/node_modules/pkg-1/data.json')
+  const source = readFileSync(jsonPath, 'utf8')
+
+  const diagnostics = []
+  syncLoaderRewriter.setDiagnosticsHook(d => diagnostics.push(d))
+  t.after(() => syncLoaderRewriter.setDiagnosticsHook(undefined))
+
+  // A matcher that reaches the JSON file. Without the skip, the transformer
+  // it produces parses the file and reports a syntax error.
+  syncLoaderRewriter.initialize({
+    instrumentations: [
+      {
+        channelName: 'unitTestJson',
+        module: { name: 'pkg-1', versionRange: '>=1', filePath: 'data.json' },
+        functionQuery: { className: 'Foo', methodName: 'doStuff', kind: 'Sync' }
+      }
+    ]
+  })
+
+  // `format: 'json'` is what Node reports, `undefined` what Deno reports.
+  for (const format of ['json', undefined]) {
+    const url = syncLoaderRewriter.resolve('pkg-1', {},
+      () => ({ url: pathToFileURL(jsonPath).href }))
+    const result = syncLoaderRewriter.load(url.url, {}, () => ({ format, source }))
+
+    assert.equal(result.source, source, `format=${format}: source must be unchanged`)
+    assert.ok(!result.shortCircuit, `format=${format}: must not short circuit`)
+  }
+
+  assert.deepEqual(diagnostics, [], 'json must report no transform event')
+})
+
 test('should rewrite code and call diagnostics hook', async (t) => {
   const { syncLoaderRewriter, snap } = t.ctx
   syncLoaderRewriter.setDiagnosticsHook(({url, moduleName, error}) => {
