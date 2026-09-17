@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.13.2](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.13.1...tracing-hooks-v0.13.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* handle type:'json' without crashing ([#56](https://github.com/apm-js-collab/tracing-hooks/issues/56)) ([c116f2f](https://github.com/apm-js-collab/tracing-hooks/commit/c116f2f0d71c172631dec6aee6334831599131ac))
+
 ## [0.13.1](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.13.0...tracing-hooks-v0.13.1) (2026-09-14)
 
 
