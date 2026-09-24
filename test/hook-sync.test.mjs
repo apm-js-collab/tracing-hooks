@@ -45,7 +45,7 @@ test('should rewrite code if it matches a subscriber and esm module', async (t) 
   const { syncLoaderRewriter, snap } = t.ctx
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
   function resolveFn() {
-    return { url: `file://${esmPath}` }
+    return { url: pathToFileURL(esmPath).href }
   }
   function nextLoad() {
     const data = readFileSync(esmPath, 'utf8')
@@ -66,7 +66,7 @@ test('should not rewrite code if it does not match a subscriber and a esm module
   const { syncLoaderRewriter, snap } = t.ctx 
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg-2/index.js')
   function resolveFn() {
-    return { url: `file://${esmPath}` }
+    return { url: pathToFileURL(esmPath).href }
   }
   function nextLoad() {
     const data = readFileSync(esmPath, 'utf8')
@@ -87,7 +87,7 @@ test('should rewrite code if it matches a subscriber and a cjs module', async (t
   const { syncLoaderRewriter, snap } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
   function resolveFn() {
-    return { url: `file://${cjsPath}` }
+    return { url: pathToFileURL(cjsPath).href }
   }
   function nextLoad(url, context) {
     const data = readFileSync(cjsPath, 'utf8')
@@ -109,7 +109,7 @@ test('should rewrite code if it matches a subscriber and a cjs module(responseUr
   const { syncLoaderRewriter, snap } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
   function resolveFn() {
-    return { url: `file://${cjsPath}` }
+    return { url: pathToFileURL(cjsPath).href }
   }
   function nextLoad(url) {
     const data = readFileSync(cjsPath, 'utf8')
@@ -131,7 +131,7 @@ test('should not rewrite code if it does not match a subscriber and a cjs module
   const { syncLoaderRewriter, snap } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-2/index.js')
   function resolveFn() {
-    return { url: `file://${cjsPath}` }
+    return { url: pathToFileURL(cjsPath).href }
   }
 
   function nextLoad() {
@@ -165,7 +165,7 @@ test('should not rewrite code if a function query does not exist in file', async
   })
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
   function resolveFn() {
-    return { url: `file://${esmPath}` }
+    return { url: pathToFileURL(esmPath).href }
   }
   function nextLoad() {
     const data = readFileSync(esmPath, 'utf8')
@@ -187,7 +187,7 @@ test('should default initialization to not crash if not defined', async (t) => {
   syncLoaderRewriter.initialize()
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
   function resolveFn() {
-    return { url: `file://${esmPath}` }
+    return { url: pathToFileURL(esmPath).href }
   }
   function nextLoad() {
     const data = readFileSync(esmPath, 'utf8')
@@ -207,7 +207,7 @@ test('should default initialization to not crash if not defined', async (t) => {
 test('should rewrite code when the loader provides source as a Uint8Array (not a Buffer)', async (t) => {
   const { syncLoaderRewriter } = t.ctx
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
-  const url = `file://${esmPath}`
+  const url = pathToFileURL(esmPath).href
   function resolveFn() {
     return { url }
   }
@@ -245,7 +245,7 @@ test('format=commonjs emits CJS-shaped diagnostics_channel require', async (t) =
   const { syncLoaderRewriter } = t.ctx
   const cjsPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/pkg-1/foo.js')
   function resolveFn() {
-    return { url: `file://${cjsPath}` }
+    return { url: pathToFileURL(cjsPath).href }
   }
   function nextLoad() {
     return {
@@ -336,13 +336,13 @@ test('json modules are handed back untouched', async (t) => {
 test('should rewrite code and call diagnostics hook', async (t) => {
   const { syncLoaderRewriter, snap } = t.ctx
   syncLoaderRewriter.setDiagnosticsHook(({url, moduleName, error}) => {
-    assert.equal(url, `file://${esmPath}`)
+    assert.equal(url, pathToFileURL(esmPath).href)
     assert.equal(moduleName, 'esm-pkg')
     assert.equal(error, undefined)
   })
   const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
   function resolveFn() {
-    return { url: `file://${esmPath}` }
+    return { url: pathToFileURL(esmPath).href }
   }
   function nextLoad() {
     const data = readFileSync(esmPath, 'utf8')
@@ -353,4 +353,33 @@ test('should rewrite code and call diagnostics hook', async (t) => {
   }
   const url = syncLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
   syncLoaderRewriter.load(url.url, {}, nextLoad)
+})
+test('should rewrite code resolved from a Windows-style file URL', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+  const diagnostics = []
+  syncLoaderRewriter.setDiagnosticsHook((diag) => diagnostics.push(diag))
+  const esmPath = path.join(import.meta.dirname, './example-deps/lib/node_modules/esm-pkg/foo.js')
+  function resolveFn() {
+    return { url: 'file:///C:/project/node_modules/esm-pkg/foo.js' }
+  }
+  function nextLoad() {
+    const data = readFileSync(esmPath, 'utf8')
+    return {
+      format: 'module',
+      source: data
+    }
+  }
+  const url = syncLoaderRewriter.resolve('esm-pkg', {}, resolveFn)
+  const result = syncLoaderRewriter.load(url.url, {}, nextLoad)
+  assert.equal(result.format, 'module')
+  assert.equal(result.shortCircuit, true)
+  assert.match(result.source, /tr_ch_apm\$unitTestEsm/)
+  assert.deepEqual(diagnostics.map(d => [d.url, d.moduleName]),
+    [['file:///C:/project/node_modules/esm-pkg/foo.js', 'esm-pkg']])
+})
+
+test('should pass through non-file URLs', async (t) => {
+  const { syncLoaderRewriter } = t.ctx
+  const url = syncLoaderRewriter.resolve('node:fs', {}, () => ({ url: 'node:fs' }))
+  assert.deepEqual(url, { url: 'node:fs' })
 })

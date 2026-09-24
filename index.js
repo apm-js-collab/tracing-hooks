@@ -72,7 +72,8 @@ function dump(code, filename) {
   const base = process.env.TRACING_DUMP_DIR ?? os.tmpdir()
   const dirname = path.dirname(filename)
   const basename = path.basename(filename)
-  const targetDir = path.join(base, dirname)
+  // A Windows drive root such as `C:\` cannot sit inside another path.
+  const targetDir = path.join(base, dirname.slice(path.parse(dirname).root.length))
   const targetFile = path.join(targetDir, basename)
 
   debug('Dumping patched code to: %s', targetFile)

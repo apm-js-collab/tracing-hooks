@@ -62,9 +62,11 @@ test('should rewrite code for a match transformer', async (t) => {
     const rewrittenCode = testModule.exports.toString()
     const snapshot = await snap(rewrittenCode)
     assert.deepEqual(rewrittenCode, snapshot)
-    const expectedDump = path.join(tracingDir, modulePath)
+    const expectedDump = path.join(tracingDir, modulePath.slice(path.parse(modulePath).root.length))
     assert.equal(statSync(expectedDump).isFile(), true)
   } finally {
+    delete process.env.TRACING_DUMP
+    delete process.env.TRACING_DUMP_DIR
     rmSync(tracingDir, { recursive: true, force: true })
   }
 })

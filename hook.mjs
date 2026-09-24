@@ -66,9 +66,12 @@ export async function resolve(specifier, context, nextResolve) {
   return resolveFromURL(await nextResolve(specifier, context))
 }
 function resolveFromURL(url) {
-  const resolvedModule = parse(url.url)
+  if (!url.url.startsWith('file:')) {
+    return url
+  }
+  const resolvedModule = parse(fileURLToPath(url.url))
   if (resolvedModule && packages.has(resolvedModule.name)) {
-    const path = fileURLToPath(resolvedModule.basedir)
+    const path = resolvedModule.basedir
     const version = getPackageVersion(path)
     const transformer = instrumentator.getTransformer(resolvedModule.name, version, resolvedModule.path)
     if (transformer) {
