@@ -1,6 +1,13 @@
 ## CHANGELOG
 
 
+## [0.13.3](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.13.2...tracing-hooks-v0.13.3) (2026-09-24)
+
+
+### Bug Fixes
+
+* Module injection silently fails on Windows ([#58](https://github.com/apm-js-collab/tracing-hooks/issues/58)) ([c0041a5](https://github.com/apm-js-collab/tracing-hooks/commit/c0041a5dc7a59e95ff34ab8f2831343ffbf80bee))
+
 ## [0.13.2](https://github.com/apm-js-collab/tracing-hooks/compare/tracing-hooks-v0.13.1...tracing-hooks-v0.13.2) (2026-09-16)
 
 
