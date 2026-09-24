@@ -60,7 +60,7 @@ test('compiled ESM (top-level await) is rewritten into importable ESM', async (t
   hook.initialize({ instrumentations: [esmInstrumentation] })
   const file = fixture('esm-pkg-compiled')
   async function resolveFn() {
-    return { url: `file://${file}` }
+    return { url: pathToFileURL(file).href }
   }
   async function nextLoad() {
     return { format: 'module', source: readFileSync(file, 'utf8') }
@@ -109,7 +109,7 @@ test('compiled CJS is rewritten into requirable CommonJS', async (t) => {
   hook.initialize({ instrumentations: [cjsInstrumentation] })
   const file = fixture('cjs-pkg-compiled')
   function resolveFn() {
-    return { url: `file://${file}` }
+    return { url: pathToFileURL(file).href }
   }
   function nextLoad() {
     return { format: 'commonjs', source: readFileSync(file, 'utf8') }
